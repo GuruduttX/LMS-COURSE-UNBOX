@@ -6,12 +6,31 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "seed:curriculum": "tsx --env-file=.env.local scripts/migrate-curriculum.ts",
+    "check:cloudinary": "tsx --conditions=react-server --env-file=.env.local scripts/verify-cloudinary.ts",
+    "check:bunny": "tsx --conditions=react-server --env-file=.env.local scripts/verify-bunny.ts",
+    "check:razorpay": "tsx --conditions=react-server --env-file=.env.local scripts/verify-razorpay.ts",
+    "seed:enrollments": "tsx --env-file=.env.local scripts/seed-enrollments.ts",
+    "seed:batches": "tsx --env-file=.env.local scripts/seed-batches.ts",
+    "backfill:audit": "tsx --env-file=.env.local scripts/backfill-audit.ts",
+    "reset:data": "tsx --env-file=.env.local scripts/reset-data.ts"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "docx-preview": "^0.4.0",
+    "framer-motion": "^13.1.0",
+    "googleapis": "^176.0.0",
+    "jose": "^6.2.10",
+    "lucide-react": "^1.33.0",
+    "mongoose": "^9.9.3",
     "next": "16.3.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-pdf": "^10.5.0",
+    "server-only": "^0.0.1",
+    "tus-js-client": "^4.3.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }

@@ -1,26 +1,335 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  Design tokens — see design.md for the rules behind these values.
+  Tailwind v4: everything inside @theme becomes a utility (e.g. bg-brand-600).
+  Do not add a tailwind.config.js; it is ignored in v4.
+*/
+
+@theme {
+  /* ---- Brand blue: primary actions, links, active state ---- */
+  --color-brand-50: #eff4ff;
+  --color-brand-100: #dbe5ff;
+  --color-brand-200: #bfd1ff;
+  --color-brand-300: #93b0ff;
+  --color-brand-400: #6088ff;
+  --color-brand-500: #3b6bff;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+
+  /* ---- Accent gold: achievement, certificates, one hero CTA ---- */
+  --color-gold-50: #fff9e6;
+  --color-gold-100: #fff0bf;
+  --color-gold-200: #ffe38c;
+  --color-gold-300: #ffda6b;
+  --color-gold-400: #ffc629;
+  --color-gold-500: #f2b01e;
+  --color-gold-600: #c98a0e;
+
+  /* ---- Ink: text and neutral surfaces (cool-tinted) ---- */
+  --color-ink-950: #070d18;
+  --color-ink-900: #0b1220;
+  --color-ink-800: #111c31;
+  --color-ink-700: #1f2a44;
+  --color-ink-600: #475569;
+  --color-ink-500: #64748b;
+  --color-ink-400: #94a3b8;
+  --color-ink-300: #cbd5e1;
+  --color-ink-200: #e2e8f0;
+  --color-ink-100: #eef2f7;
+  --color-ink-50: #f6f9fc;
+
+  /* ---- Semantic ---- */
+  --color-success-50: #ecfdf5;
+  --color-success-500: #16a34a;
+  --color-success-700: #15803d;
+  --color-warning-50: #fffbeb;
+  --color-warning-500: #f59e0b;
+  --color-warning-700: #b45309;
+  --color-danger-50: #fef2f2;
+  --color-danger-500: #dc2626;
+  --color-danger-700: #b91c1c;
+
+  /*
+    ---- Fixed colours: identical in light and dark ----
+    Everything above flips with the theme. These do not, because the thing they
+    colour does not: a video letterbox and a modal scrim are dark by design, and
+    a filled brand button has to keep white text at every hour of the day. Never
+    redefine these in the dark blocks below — that is the whole point of them.
+  */
+  --color-brand-solid: #2563eb;
+  --color-brand-solid-hover: #1d4ed8;
+  --color-brand-solid-active: #1e40af;
+  --color-success-solid: #16a34a;
+  --color-on-gold: #0b1220; /* text on a gold fill */
+
+  /* Always-dark surfaces (the marketing footer, players, scrims). */
+  --color-night-900: #0b1220;
+  --color-night-800: #111c31;
+  --color-night-700: #1f2a44;
+  --color-night-500: #64748b;
+  --color-night-400: #94a3b8;
+  --color-night-300: #cbd5e1;
+
+  /* ---- App surfaces ---- */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f9fe;
+  --color-surface-sunken: #eef3fb;
+  --color-border: #e5eaf2;
+  --color-border-strong: #cbd5e1;
+
+  /* ---- Type scale (1.200 minor third, 16px base) ---- */
+  --text-2xs: 0.6875rem; /* 11px - badges only */
+  --text-xs: 0.75rem; /* 12px - meta, timestamps */
+  --text-sm: 0.875rem; /* 14px - UI default, labels */
+  --text-base: 1rem; /* 16px - body */
+  --text-lg: 1.125rem; /* 18px - lead, card title */
+  --text-xl: 1.375rem; /* 22px - section heading */
+  --text-2xl: 1.75rem; /* 28px - page heading */
+  --text-3xl: 2.25rem; /* 36px - hero (desktop) */
+  --text-4xl: 3rem; /* 48px - marketing hero only */
+
+  /* ---- Radii: generous, matches the marketing site ---- */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem; /* inputs, small buttons */
+  --radius-lg: 0.875rem; /* buttons, chips */
+  --radius-xl: 1rem; /* cards */
+  --radius-2xl: 1.25rem; /* panels, modals */
+
+  /* ---- Shadows: blue-tinted, low opacity, never harsh ---- */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 12px 28px -8px rgb(30 58 138 / 0.14), 0 4px 8px -4px rgb(15 23 42 / 0.05);
+  --shadow-focus: 0 0 0 3px rgb(37 99 235 / 0.25);
+
+  /* ---- Motion ---- */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- Fonts ---- */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/*
+  Dark theme.
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  Not a `dark:` variant sweep — the app never uses a literal colour (zero
+  bg-gray-*, zero bg-white), so flipping the token values flips the whole app.
+  The ink ramp is *inverted* rather than renamed: `text-ink-900` still means
+  "the strongest text colour", it is just near-white here, so every existing
+  class keeps its meaning and no component needs a dark-specific class.
+
+  Two selectors, same values:
+    [data-theme="dark"]   — the user chose dark.
+    [data-theme="system"] — the user follows the OS, resolved by the media
+                            query. Because it is pure CSS, system mode needs no
+                            JavaScript and cannot flash the wrong theme.
+  The values are duplicated deliberately; CSS has no way to share a declaration
+  block between a selector and a media query, and an indirection layer would
+  cost more clarity than the repetition does. Edit both.
+*/
+
+/*
+  Escape hatch for the rare rule a token flip cannot express (`dark:` should be
+  a last resort — prefer fixing the token). Two branches, because "system" only
+  means dark when the OS says so.
+*/
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) {
+      @slot;
+    }
   }
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Brand: lift the mid tones so they carry on a dark ground, and turn the
+     50/100 tints (used as active + hover fills) into dark washes. */
+  --color-brand-50: #16233f;
+  --color-brand-100: #1d3260;
+  --color-brand-200: #26478c;
+  --color-brand-300: #3a63bd;
+  --color-brand-400: #5b86ee;
+  --color-brand-500: #6d97ff;
+  --color-brand-600: #7ea6ff;
+  --color-brand-700: #9dbcff;
+  --color-brand-800: #c0d3ff;
+  --color-brand-900: #dce7ff;
+
+  /* Gold: same treatment — the 50 tint is a fill, the rest are text/icons. */
+  --color-gold-50: #33290a;
+  --color-gold-100: #4a3a0d;
+  --color-gold-200: #6b5410;
+  --color-gold-300: #a8811a;
+  --color-gold-400: #f0c04a;
+  --color-gold-500: #ffd166;
+  --color-gold-600: #ffdf8f;
+
+  /* Ink, inverted: 950 is the deepest *background*, 900 the brightest text. */
+  --color-ink-950: #f8fafc;
+  --color-ink-900: #eef2f8;
+  --color-ink-800: #dbe2ec;
+  --color-ink-700: #c3ccda;
+  --color-ink-600: #9aa6b8;
+  --color-ink-500: #7d8b9e;
+  --color-ink-400: #5c6980;
+  --color-ink-300: #3a465c;
+  --color-ink-200: #2a3547;
+  --color-ink-100: #212b3b;
+  --color-ink-50: #18202d;
+
+  /* Semantic: the 50s become washes, the 500/700s brighten to stay legible. */
+  --color-success-50: #0e2a1e;
+  --color-success-500: #34d17f;
+  --color-success-700: #6ee7a8;
+  --color-warning-50: #2f2409;
+  --color-warning-500: #f5b83d;
+  --color-warning-700: #ffd071;
+  --color-danger-50: #331618;
+  --color-danger-500: #f87171;
+  --color-danger-700: #fca5a5;
+
+  /* Surfaces: cards sit *above* the page, so surface is lighter than muted. */
+  --color-surface: #141c28;
+  --color-surface-muted: #0d131c;
+  --color-surface-sunken: #090e16;
+  --color-border: #26303f;
+  --color-border-strong: #3a465c;
+
+  /* Shadows: pure black and heavier — a navy tint is invisible down here. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 12px 28px -8px rgb(0 0 0 / 0.6), 0 4px 8px -4px rgb(0 0 0 / 0.4);
+  --shadow-focus: 0 0 0 3px rgb(126 166 255 / 0.32);
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Keep in sync with :root[data-theme="dark"] above. */
+  :root[data-theme="system"] {
+    color-scheme: dark;
+
+    --color-brand-50: #16233f;
+    --color-brand-100: #1d3260;
+    --color-brand-200: #26478c;
+    --color-brand-300: #3a63bd;
+    --color-brand-400: #5b86ee;
+    --color-brand-500: #6d97ff;
+    --color-brand-600: #7ea6ff;
+    --color-brand-700: #9dbcff;
+    --color-brand-800: #c0d3ff;
+    --color-brand-900: #dce7ff;
+
+    --color-gold-50: #33290a;
+    --color-gold-100: #4a3a0d;
+    --color-gold-200: #6b5410;
+    --color-gold-300: #a8811a;
+    --color-gold-400: #f0c04a;
+    --color-gold-500: #ffd166;
+    --color-gold-600: #ffdf8f;
+
+    --color-ink-950: #f8fafc;
+    --color-ink-900: #eef2f8;
+    --color-ink-800: #dbe2ec;
+    --color-ink-700: #c3ccda;
+    --color-ink-600: #9aa6b8;
+    --color-ink-500: #7d8b9e;
+    --color-ink-400: #5c6980;
+    --color-ink-300: #3a465c;
+    --color-ink-200: #2a3547;
+    --color-ink-100: #212b3b;
+    --color-ink-50: #18202d;
+
+    --color-success-50: #0e2a1e;
+    --color-success-500: #34d17f;
+    --color-success-700: #6ee7a8;
+    --color-warning-50: #2f2409;
+    --color-warning-500: #f5b83d;
+    --color-warning-700: #ffd071;
+    --color-danger-50: #331618;
+    --color-danger-500: #f87171;
+    --color-danger-700: #fca5a5;
+
+    --color-surface: #141c28;
+    --color-surface-muted: #0d131c;
+    --color-surface-sunken: #090e16;
+    --color-border: #26303f;
+    --color-border-strong: #3a465c;
+
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.35);
+    --shadow-lg: 0 12px 28px -8px rgb(0 0 0 / 0.6), 0 4px 8px -4px rgb(0 0 0 / 0.4);
+    --shadow-focus: 0 0 0 3px rgb(126 166 255 / 0.32);
+  }
+}
+
+/* Non-utility tokens (read in JS / arbitrary values) */
+:root {
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --header-h: 4rem;
+  --sidebar-w: 17rem;
+  --content-max: 72rem;
+  color-scheme: light;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface-muted);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One consistent focus ring everywhere. Never remove without a replacement. */
+:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/**
+ * docx-preview's own chrome, brought into the app's.
+ *
+ * The library injects a stylesheet with the document: a grey page-gutter
+ * background and an unbordered white page. That is a reasonable default for a
+ * standalone viewer and wrong inside our pane, where the surrounding surface is
+ * already doing that job. Overridden here rather than by passing options
+ * because the library styles these classes directly.
+ *
+ * Only the frame is touched. Everything inside `.docx` is the document's own
+ * formatting and is deliberately left alone.
+ */
+.docx-host .docx-wrapper {
+  background: transparent;
+  padding: 0;
+  gap: 1rem;
+}
+
+.docx-host .docx {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 0.5rem);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
 }
