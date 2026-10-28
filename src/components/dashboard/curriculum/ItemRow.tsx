@@ -3,7 +3,11 @@ import Link from "next/link";
 
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/curriculum/format";
-import { materialHref, moduleEntryHref } from "@/lib/curriculum/links";
+import {
+  materialHref,
+  moduleEntryHref,
+  moduleTestHref,
+} from "@/lib/curriculum/links";
 import {
   itemStatus,
   moduleSeconds,
@@ -12,7 +16,7 @@ import {
 } from "@/lib/curriculum/status";
 import type { CourseItem } from "@/lib/curriculum/types";
 
-import { AssignmentDialog } from "./AssignmentDialog";
+import { AssignmentActions } from "./AssignmentActions";
 import { StatusBadge, StatusIcon, TypeIcon, TYPE_LABEL } from "./status";
 
 /**
@@ -22,11 +26,11 @@ import { StatusBadge, StatusIcon, TypeIcon, TYPE_LABEL } from "./status";
  * making the student find the "Go to course" button instead would be a step
  * they don't need. Assignment rows aren't links yet; that screen doesn't exist.
  *
- * Which is why an assignment row carries a **⋮ menu** (`AssignmentDialog`):
- * the brief, the brief document and the way to hand work in all live behind it.
- * The screen that would otherwise carry them does not exist, and an assignment
- * a student can see but not open or answer is not much of an assignment. The
- * menu is hidden while the course is locked, like everything else inside it.
+ * So an assignment row carries its own controls (`AssignmentActions`): a
+ * **Submit button** and, when the teacher attached one, a ⋮ holding the brief
+ * document. Handing in used to live inside that ⋮ too, which made the single
+ * most important act on the row the least visible thing on it. Both are hidden
+ * while the course is locked, like everything else inside it.
  *
  * Tests no longer appear here. A module test belongs to its module and a final
  * test to the course, so each has its own place rather than a row in a list
@@ -115,7 +119,7 @@ export function ItemRow({
         </span>
 
         {item.assignment && !locked ? (
-          <AssignmentDialog
+          <AssignmentActions
             programSlug={programSlug}
             courseId={courseId}
             assignment={item.assignment}
@@ -237,7 +241,7 @@ function ModuleTestRow({
 
   return (
     <Link
-      href={`/dashboard/${programSlug}/tests/${courseId}?m=${encodeURIComponent(courseModule.id)}`}
+      href={moduleTestHref(programSlug, courseId, courseModule.id)}
       className="flex items-center gap-2 border-t border-border px-4 py-2 text-2xs font-medium text-ink-600 transition-colors hover:bg-ink-50 hover:text-ink-900"
     >
       <PencilLine size={14} aria-hidden className="shrink-0 text-brand-600" />

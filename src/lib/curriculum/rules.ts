@@ -86,3 +86,38 @@ export const MIN_AGGREGATE_PERCENT = 75;
 
 /** Needed across the mid- and end-term papers together. */
 export const MIN_TERM_PERCENT = 50;
+
+/* ------------------------------- presentation ---------------------------- */
+
+/**
+ * How a program is pitched to someone who has not enrolled — the vocabulary of
+ * `Program.marketing`, which is what the public pages render.
+ *
+ * These are policy in the same sense as the maxima above: what may be claimed
+ * on the site, and how much of it. They live here rather than in the schema so
+ * the form, the validator and the model all read one list.
+ */
+export const PROGRAM_LEVELS = ["beginner", "intermediate", "advanced"] as const;
+
+export type ProgramLevel = (typeof PROGRAM_LEVELS)[number];
+
+export function isProgramLevel(value: unknown): value is ProgramLevel {
+  return (
+    typeof value === "string" &&
+    (PROGRAM_LEVELS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * Caps on the three bullet lists, so a card cannot become a wall of text.
+ *
+ * Chosen for the layouts that render them rather than for the database: eight
+ * highlights fill the public page's two-column grid exactly, and twelve tool
+ * chips are about a phone's worth of two rows.
+ */
+export const MAX_HIGHLIGHTS = 8;
+export const MAX_TOOLS = 12;
+export const MAX_OFFERS = 8;
+
+/** The longest a program may claim to run, in months — a sanity bound. */
+export const MAX_PROGRAM_MONTHS = 36;

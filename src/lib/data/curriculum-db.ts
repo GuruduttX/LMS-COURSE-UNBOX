@@ -34,6 +34,8 @@ import { Program } from "@/models/Program";
 import { Subtopic } from "@/models/Subtopic";
 import { Topic } from "@/models/Topic";
 import type { SubtopicKind } from "@/lib/curriculum/kinds";
+import { learnHref } from "@/lib/curriculum/links";
+import { nextAfterLessons } from "@/lib/curriculum/next-step";
 import { toAuthoredQuestion } from "@/lib/curriculum/question-kinds";
 import {
   MAX_FINAL_ATTEMPTS,
@@ -126,6 +128,7 @@ export async function getProgramCurriculum(
     title: program.title,
     summary: program.summary ?? "",
     nodeStatus: program.status as NodeStatus,
+    hasDetails: program.marketing != null,
   };
 
   const built = buildCourses(
@@ -185,9 +188,18 @@ export async function getLearnScreen(
     .find((item) => item.subtopics.some((sub) => sub.id === subtopic.id));
   if (!topic) return null;
 
-  // Prev/Next run across the whole course, not just the open module — that is
-  // what "next" means to someone working through it front to back.
-  const flat: LearnStep[] = course.modules.flatMap((item) =>
+  /**
+   * Prev/Next run across the whole course, not just the open module — that is
+   * what "next" means to someone working through it front to back.
+   *
+   * And **past the end of it**: the last lesson of a course is not the end of
+   * anything a student can see, it is the point where the assignment and the
+   * paper are what remain. `nextAfterLessons` picks that up; without it the
+   * control simply went grey on the one screen where a student most needs
+   * telling what is left. Nothing follows the last lesson of the last course
+   * once everything is handed in, and there Next is inert on purpose.
+   */
+  const flat = course.modules.flatMap((item) =>
     moduleSubtopics(item.topics).map((sub) => ({
       moduleId: item.id,
       subtopicId: sub.id,
@@ -195,6 +207,27 @@ export async function getLearnScreen(
     })),
   );
   const at = flat.findIndex((item) => item.subtopicId === subtopic.id);
+
+  const behind = at > 0 ? flat[at - 1] : null;
+  const ahead = at >= 0 && at < flat.length - 1 ? flat[at + 1] : null;
+
+  const prev: LearnStep | null = behind
+    ? {
+        href: learnHref(programSlug, course.id, behind.moduleId, behind.subtopicId),
+        label: "Prev",
+        title: behind.title,
+        note: null,
+      }
+    : null;
+
+  const next: LearnStep | null = ahead
+    ? {
+        href: learnHref(programSlug, course.id, ahead.moduleId, ahead.subtopicId),
+        label: "Next",
+        title: ahead.title,
+        note: null,
+      }
+    : nextAfterLessons(curriculum, course);
 
   /**
    * One video, checked against Bunny only while the cached status still says
@@ -215,8 +248,8 @@ export async function getLearnScreen(
     module: activeModule,
     subtopic: video === subtopic.video ? subtopic : { ...subtopic, video },
     topic,
-    prev: at > 0 ? flat[at - 1] : null,
-    next: at >= 0 && at < flat.length - 1 ? flat[at + 1] : null,
+    prev,
+    next,
   };
 }
 
@@ -243,6 +276,8 @@ type RawCourse = {
   title: string;
   summary?: string;
   completeBy?: Date | null;
+  startMonth?: number | null;
+  endMonth?: number | null;
   status: NodeStatus;
 };
 type RawModule = {
@@ -393,7 +428,7 @@ function buildCourses(rows: Rows, history: History): CourseView[] {
         id: view.id,
         title: `Module ${view.number}: ${view.title}`,
         type: "module" as const,
-        status: moduleStatus(view.topics),
+        status: moduleStatus(view),
         score: null,
         dueDate: null,
         module: view,
@@ -418,6 +453,8 @@ function buildCourses(rows: Rows, history: History): CourseView[] {
       title: course.title,
       summary: course.summary ?? "",
       completeBy: course.completeBy ? course.completeBy.toISOString() : null,
+      startMonth: course.startMonth ?? null,
+      endMonth: course.endMonth ?? null,
       items,
       modules,
       assignments,
@@ -569,5 +606,12 @@ function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
 }
 
 function isFinished(status: Status): boolean {
-  return status === "completed" || status === "evaluated" || status === "submitted";
+  return (
+    status === "completed" ||
+    status === "evaluated" ||
+    status === "submitted" ||
+    // Handed in and sent back: still handed in, as far as progress goes.
+    // Same rule as `DONE` in curriculum/status.ts.
+    status === "resubmission-requested"
+  );
 }

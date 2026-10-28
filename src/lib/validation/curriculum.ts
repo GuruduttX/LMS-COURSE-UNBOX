@@ -18,7 +18,15 @@ import {
   BOOLEAN_OPTIONS,
   type QuestionKind,
 } from "@/lib/curriculum/question-kinds";
-import { ASSIGNMENT_MAX, isNodeStatus } from "@/lib/curriculum/rules";
+import {
+  ASSIGNMENT_MAX,
+  isNodeStatus,
+  isProgramLevel,
+  MAX_HIGHLIGHTS,
+  MAX_OFFERS,
+  MAX_PROGRAM_MONTHS,
+  MAX_TOOLS,
+} from "@/lib/curriculum/rules";
 import {
   extensionFromUrl,
   isSubmissionFormat,
@@ -90,6 +98,146 @@ export function validateProgram(input: ProgramInput): ProgramErrors {
   return errors;
 }
 
+/* ---------------------------- program details ---------------------------- */
+
+/**
+ * How a program is pitched — the Details screen, separate from `validateProgram`
+ * above, which is about identity.
+ *
+ * **Nothing here is required.** A half-filled Details screen is a legitimate
+ * state: staff write the tagline today and the offers next week, and the public
+ * page renders only the sections that have content. Requiring a description to
+ * save a tagline would mean the page shows nothing until someone has an hour.
+ *
+ * The three list fields ride beside the input rather than in it, because a
+ * repeated form field is `string[]`, not a string — the same shape
+ * `AssignmentInput` uses for its accepted formats.
+ */
+export type ProgramDetailsInput = {
+  tagline: string;
+  description: string;
+  /** "" = not stated, otherwise a PROGRAM_LEVELS member. */
+  level: string;
+  /** Checkboxes post "on" or nothing at all. */
+  placementGuarantee: string;
+  nextBatch: string;
+  /** The "New" ribbon. Named for the field on the model, not `isNew`. */
+  newBadge: string;
+};
+
+export type ProgramDetailsErrors = Partial<
+  Record<
+    keyof ProgramDetailsInput | "cover" | "highlights" | "tools" | "offers",
+    string
+  >
+>;
+
+export type ProgramDetailsLists = {
+  highlights: string[];
+  tools: string[];
+  offers: string[];
+};
+
+export const EMPTY_PROGRAM_DETAILS: ProgramDetailsInput = {
+  tagline: "",
+  description: "",
+  level: "",
+  placementGuarantee: "",
+  nextBatch: "",
+  newBadge: "",
+};
+
+export const EMPTY_PROGRAM_DETAILS_LISTS: ProgramDetailsLists = {
+  highlights: [],
+  tools: [],
+  offers: [],
+};
+
+/** The longest a single bullet may be — one line on a card, not a paragraph. */
+const BULLET_MAX = 140;
+
+export function validateProgramDetails(
+  input: ProgramDetailsInput,
+  lists: ProgramDetailsLists,
+): ProgramDetailsErrors {
+  const errors: ProgramDetailsErrors = {};
+
+  if (input.tagline.trim().length > 160) {
+    errors.tagline = "Keep the tagline under 160 characters.";
+  }
+
+  if (input.description.trim().length > 4000) {
+    errors.description = "Keep the description under 4,000 characters.";
+  }
+
+  // "" is a real answer — "we are not claiming a level" — so only a non-empty
+  // value that is not one of ours is an error.
+  if (input.level && !isProgramLevel(input.level)) {
+    errors.level = "Pick a level, or leave it unstated.";
+  }
+
+  if (input.nextBatch.trim().length > 80) {
+    errors.nextBatch = "Keep this under 80 characters.";
+  }
+
+  Object.assign(
+    errors,
+    validateBullets("highlights", lists.highlights, MAX_HIGHLIGHTS, "highlights"),
+    validateBullets("tools", lists.tools, MAX_TOOLS, "tools"),
+    validateBullets("offers", lists.offers, MAX_OFFERS, "offers"),
+  );
+
+  return errors;
+}
+
+function validateBullets(
+  field: "highlights" | "tools" | "offers",
+  values: string[],
+  max: number,
+  noun: string,
+): ProgramDetailsErrors {
+  // Blank rows are dropped rather than rejected: an empty row is someone who
+  // clicked Add and changed their mind, not an error to explain.
+  const filled = values.map((value) => value.trim()).filter(Boolean);
+
+  if (filled.length > max) {
+    return { [field]: `Keep it to ${max} ${noun}.` };
+  }
+  if (filled.some((value) => value.length > BULLET_MAX)) {
+    return { [field]: `Keep each one under ${BULLET_MAX} characters.` };
+  }
+  return {};
+}
+
+/**
+ * Trim, drop blanks, de-duplicate, cap. The one rule both sides run.
+ *
+ * De-duplication is case-insensitive but keeps the first spelling: someone who
+ * types "GA4" and then "ga4" meant one tool, and the one they typed first is
+ * the one they meant to show.
+ */
+export function cleanStringList(
+  values: readonly string[],
+  max: number,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const value of values) {
+    const text = value.trim();
+    if (!text) continue;
+
+    const fingerprint = text.toLowerCase();
+    if (seen.has(fingerprint)) continue;
+
+    seen.add(fingerprint);
+    out.push(text);
+    if (out.length === max) break;
+  }
+
+  return out;
+}
+
 /* --------------------------------- course -------------------------------- */
 
 export type CourseInput = {
@@ -99,6 +247,10 @@ export type CourseInput = {
   title: string;
   summary: string;
   completeBy: string;
+  /** Which month of the programme it runs in. "" = the timeline isn't set. */
+  startMonth: string;
+  /** "" alongside a startMonth means it sits inside that single month. */
+  endMonth: string;
   status: string;
 };
 
@@ -110,6 +262,8 @@ export const EMPTY_COURSE: CourseInput = {
   title: "",
   summary: "",
   completeBy: "",
+  startMonth: "",
+  endMonth: "",
   status: "draft",
 };
 
@@ -140,9 +294,43 @@ export function validateCourse(input: CourseInput): CourseErrors {
     errors.completeBy = "Pick a date.";
   }
 
+  // The month span. Both blank is the normal state for a course whose timeline
+  // nobody has decided yet, so neither field is required — but an end without a
+  // start, or an end before its start, is a typo rather than a choice.
+  const start = parseMonth(input.startMonth);
+  const end = parseMonth(input.endMonth);
+  const monthHint = `A whole number between 1 and ${MAX_PROGRAM_MONTHS}, or leave it blank.`;
+
+  if (start === "invalid") errors.startMonth = monthHint;
+  if (end === "invalid") errors.endMonth = monthHint;
+
+  if (start === null && typeof end === "number") {
+    errors.startMonth = "Set the starting month before the ending one.";
+  } else if (typeof start === "number" && typeof end === "number" && end < start) {
+    errors.endMonth = "The ending month cannot be before the starting one.";
+  }
+
   if (!isNodeStatus(input.status)) errors.status = "Pick a status.";
 
   return errors;
+}
+
+/**
+ * A month field: the number, null for blank, or "invalid".
+ *
+ * Three outcomes rather than `number | null`, because "they left it empty" and
+ * "they typed something that is not a month" need different messages, and
+ * `Number("")` is 0 — which would silently pass a blank field off as a value.
+ */
+function parseMonth(value: string): number | null | "invalid" {
+  const text = value.trim();
+  if (!text) return null;
+
+  const month = Number(text);
+  if (!Number.isInteger(month) || month < 1 || month > MAX_PROGRAM_MONTHS) {
+    return "invalid";
+  }
+  return month;
 }
 
 /* ---------------------------- module and topic --------------------------- */
@@ -792,6 +980,29 @@ export function validateGrade(input: GradeInput, maxMarks: number): GradeErrors 
 
   if (input.feedback.trim().length > 2000) {
     errors.feedback = "Keep the feedback under 2000 characters.";
+  }
+
+  return errors;
+}
+
+/**
+ * Sending a hand-in back. The reason is optional — some requests explain
+ * themselves ("wrong file") — but when given it is what the student reads
+ * first, so it is capped rather than left to run on.
+ */
+export type ResubmissionInput = { reason: string };
+
+export type ResubmissionErrors = Partial<Record<keyof ResubmissionInput, string>>;
+
+export const EMPTY_RESUBMISSION: ResubmissionInput = { reason: "" };
+
+export function validateResubmissionRequest(
+  input: ResubmissionInput,
+): ResubmissionErrors {
+  const errors: ResubmissionErrors = {};
+
+  if (input.reason.trim().length > 1000) {
+    errors.reason = "Keep the reason under 1000 characters.";
   }
 
   return errors;

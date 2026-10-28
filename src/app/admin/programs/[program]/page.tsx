@@ -1,5 +1,6 @@
-import { GraduationCap, Library, Pencil, Plus, Wallet } from "lucide-react";
+import { GraduationCap, Library, Megaphone, Pencil, Plus, Wallet } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PageHeading, StatTile } from "@/components/staff/StatTile";
@@ -72,9 +73,16 @@ export default async function AdminProgramPage({
               <Wallet size={16} aria-hidden />
               Fees
             </ButtonLink>
+            <ButtonLink
+              href={`/admin/programs/${slug}/details`}
+              variant="secondary"
+            >
+              <Megaphone size={16} aria-hidden />
+              Details
+            </ButtonLink>
             <ButtonLink href={hrefs.editProgram()} variant="secondary">
               <Pencil size={16} aria-hidden />
-              Edit details
+              Edit
             </ButtonLink>
             <ButtonLink href={hrefs.newCourse()}>
               <Plus size={16} aria-hidden />
@@ -83,6 +91,27 @@ export default async function AdminProgramPage({
           </div>
         }
       />
+
+      {curriculum.program.nodeStatus === "published" &&
+      !curriculum.program.hasDetails ? (
+        <p className="flex items-start gap-2 rounded-lg border border-warning-500/30 bg-warning-50 p-3 text-sm text-warning-800">
+          <Megaphone size={16} aria-hidden className="mt-0.5 shrink-0" />
+          <span>
+            <span className="font-semibold">
+              This program is live on the site with no public details.
+            </span>{" "}
+            Visitors see its title, its summary and the curriculum — no pitch, no
+            cover and nothing about what it offers.{" "}
+            <Link
+              href={`/admin/programs/${slug}/details`}
+              className="font-semibold underline"
+            >
+              Write them
+            </Link>
+            .
+          </span>
+        </p>
+      ) : null}
 
       <NodeActions
         node={{

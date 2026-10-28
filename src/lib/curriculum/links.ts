@@ -54,13 +54,21 @@ export function courseDetailsHref(
   return courseId ? `${base}?c=${courseId}` : base;
 }
 
-/** The module test, which sits at the end of a module's subtopics. */
+/**
+ * The module test, which sits at the end of a module's subtopics.
+ *
+ * The same screen as the final test with `?m=` naming the module — there is one
+ * runner and one cover page, and which paper they show is data. This used to
+ * point at `/learn/…/test`, a route that was never built; nothing called it, so
+ * nothing broke, and the one caller that did want it (`ItemRow`) had assembled
+ * the URL by hand.
+ */
 export function moduleTestHref(
   programSlug: string,
   courseId: string,
   moduleId: string,
 ): string {
-  return `/learn/${programSlug}/${courseId}/${moduleId}/test`;
+  return `${finalTestHref(programSlug, courseId)}?m=${encodeURIComponent(moduleId)}`;
 }
 
 /** The course final test — its own chrome-free area, outside the learn shell. */

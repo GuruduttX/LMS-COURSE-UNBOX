@@ -6,6 +6,7 @@ import {
   ClipboardList,
   FileCheck2,
   Lock,
+  RotateCcw,
 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
@@ -24,8 +25,14 @@ export type ItemType = CourseItem["type"];
  */
 const BADGE: Record<Status, { label: string; className: string }> = {
   completed: { label: "Completed", className: "bg-success-50 text-success-700" },
-  evaluated: { label: "Evaluated", className: "bg-success-50 text-success-700" },
+  evaluated: { label: "Graded", className: "bg-success-50 text-success-700" },
   submitted: { label: "Submitted", className: "bg-brand-50 text-brand-700" },
+  // Two words where the rest are one: "Resubmit" alone reads as a button, and
+  // this is a state the teacher put the work in, not an offer.
+  "resubmission-requested": {
+    label: "Redo requested",
+    className: "bg-warning-50 text-warning-700",
+  },
   "in-progress": { label: "In progress", className: "bg-brand-50 text-brand-700" },
   "not-started": { label: "Not started", className: "bg-ink-100 text-ink-600" },
   locked: { label: "Locked", className: "bg-ink-100 text-ink-500" },
@@ -49,6 +56,9 @@ export function StatusBadge({
       )}
     >
       {status === "locked" ? <Lock size={11} aria-hidden /> : null}
+      {status === "resubmission-requested" ? (
+        <RotateCcw size={11} aria-hidden />
+      ) : null}
       {badge.label}
     </span>
   );
@@ -70,6 +80,8 @@ export function StatusIcon({ status }: { status: Status }) {
       return <CircleDot size={size} aria-hidden className="text-brand-600" />;
     case "locked":
       return <Lock size={size} aria-hidden className="text-ink-400" />;
+    case "resubmission-requested":
+      return <RotateCcw size={size} aria-hidden className="text-warning-700" />;
     default:
       return <CircleDashed size={size} aria-hidden className="text-ink-400" />;
   }

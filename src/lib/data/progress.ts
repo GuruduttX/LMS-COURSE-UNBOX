@@ -14,11 +14,16 @@ import "server-only";
 import { Types } from "mongoose";
 
 import { Attempt } from "@/models/Attempt";
-import { Submission } from "@/models/Submission";
+import { Submission, type SubmissionDocument } from "@/models/Submission";
 import { SubtopicProgress } from "@/models/SubtopicProgress";
 import { FINAL_TEST_PASS_PERCENT } from "@/lib/curriculum/rules";
-import type { AttemptSummary, SubmissionView } from "@/lib/curriculum/types";
+import type {
+  AttemptSummary,
+  SubmissionVersionView,
+  SubmissionView,
+} from "@/lib/curriculum/types";
 import type { SubmissionFormat } from "@/lib/curriculum/submission-formats";
+import type { SubmissionStatus } from "@/lib/curriculum/submission-status";
 
 export type ProgressState = "in-progress" | "completed";
 
@@ -123,13 +128,49 @@ export async function loadSubmissions(
         format: row.format as SubmissionFormat,
         note: row.note ?? "",
         submittedAt: row.submittedAt.toISOString(),
-        status: row.status as "submitted" | "evaluated",
+        status: row.status as SubmissionStatus,
+        // Rows from before versions existed carry neither field: they are a
+        // first hand-in with nothing behind them.
+        version: row.version ?? 1,
         scored: row.scored ?? null,
         maxMarks: row.maxMarks,
         feedback: row.feedback ?? "",
+        evaluatedAt: row.evaluatedAt ? row.evaluatedAt.toISOString() : null,
+        resubmission:
+          row.status === "resubmission_requested" && row.resubmission
+            ? {
+                reason: row.resubmission.reason ?? "",
+                requestedAt: row.resubmission.requestedAt.toISOString(),
+              }
+            : null,
+        history: toVersionViews(row.history),
       },
     ]),
   );
+}
+
+type StoredVersion = NonNullable<SubmissionDocument["history"]>[number];
+
+/** Earlier versions of a hand-in, oldest first, shaped for a screen. */
+export function toVersionViews(
+  history: readonly StoredVersion[] | null | undefined,
+): SubmissionVersionView[] {
+  return (history ?? [])
+    .map((entry) => ({
+      version: entry.version,
+      fileUrl: entry.fileUrl,
+      file: (entry.file as SubmissionVersionView["file"]) ?? null,
+      format: entry.format as SubmissionFormat,
+      note: entry.note ?? "",
+      submittedAt: entry.submittedAt.toISOString(),
+      scored: entry.scored ?? null,
+      maxMarks: entry.maxMarks ?? 0,
+      feedback: entry.feedback ?? "",
+      evaluatedAt: entry.evaluatedAt ? entry.evaluatedAt.toISOString() : null,
+      resubmissionReason: entry.resubmissionReason ?? "",
+      resubmissionRequestedAt: entry.resubmissionRequestedAt.toISOString(),
+    }))
+    .sort((a, b) => a.version - b.version);
 }
 
 /** Nothing at all — for a signed-out or not-yet-enrolled read of the tree. */

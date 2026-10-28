@@ -12,8 +12,9 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { Reveal, RevealItem } from "@/components/ui/Reveal";
 import {
-  getAvailableCourses,
-} from "@/lib/data/dashboard";
+  availablePrograms,
+  publicProgramTitles,
+} from "@/lib/data/public-programs";
 import { getStudent } from "@/lib/data/student";
 
 export const metadata: Metadata = {
@@ -25,21 +26,28 @@ export const metadata: Metadata = {
  * `data/enrolled.ts`, which reads the same rows the staff roster does.
  * Order is deliberate: what you're doing now, then what you could do next.
  *
- * "All courses" is still the marketing catalogue from `data/home.ts`: it is
- * what the business sells, not what the database has a program for, and the
- * two lists legitimately differ.
+ * "All courses" is every published program the student is not already on — the
+ * same list, and the same cards, the public site shows. It used to be a
+ * hardcoded marketing array, which meant it advertised programs that did not
+ * exist and hid the ones that did.
  */
 export default async function DashboardPage() {
   const student = await getStudent();
   const enrolled = await getEnrolledPrograms(student.id);
-  const available = getAvailableCourses(enrolled.map((item) => item.slug));
+  const [available, programTitles] = await Promise.all([
+    availablePrograms(enrolled.map((item) => item.slug)),
+    // Every published title, not just the unenrolled ones: the enquiry dropdown
+    // is the same dropdown everywhere, and a student asking about a program
+    // they are already on is a normal question.
+    publicProgramTitles(),
+  ]);
 
   // Withdrawn enrolments never reach here, so anything unpaid is something the
   // student can act on right now.
   const unpaid = enrolled.filter((item) => !item.fee.paid);
 
   return (
-    <EnquiryProvider>
+    <EnquiryProvider programs={programTitles}>
       <DashboardHeader />
 
       <main id="main" className="flex-1 py-8 md:py-10">

@@ -3,7 +3,7 @@
 Running log of what exists, how it fits together, and decisions made. Maintained for
 future Claude sessions: read this first, and append to it whenever something changes.
 
-Last updated: 2026-09-04
+Last updated: 2026-10-27
 
 ---
 
@@ -98,22 +98,24 @@ src/components/
                     VideoStage, ReadingStage (text + PDF),
                     QuizRunner (client), EmptyPane, LearnFooterBar
   dashboard/curriculum/  CourseRail, CourseCards (mobile), CoursePanel, ItemRow,
-                    AssignmentDialog,
+                    AssignmentActions (Submit button + brief ⋮),
                     status.tsx (badges/icons)
+  staff/grading/    GradeForm (the mark + feedback island)
   dashboard/marksheet/  ScoreBand, MarksTable, ModuleBreakdown, MarkValue,
                     GraduationCriteria (dialog)
   dashboard/overview/  OverviewHeader, MetricStrip, ContinueCard, PlacementCard,
                     SupportCard, SessionsCard, CommunityCard
   dashboard/sessions/  AttendanceBand (dialog), SessionCard, SessionFilters
-  auth/             LoginForm, ChangePasswordForm, UserMenu
+  auth/             AuthShell (split frame for /login + /account/password),
+                    LoginForm, ChangePasswordForm, UserMenu
   staff/            StaffLayout (guard + shell), StaffShell, nav.ts, StatTile,
                     PersonForm, SessionForm, AttendanceRoster
   enquiry/          EnquiryProvider (context), EnquiryDialog, EnquiryButton
   ui/               Primitives: Button/ButtonLink, Container, Field, FileUpload,
                     VideoUpload, AttachmentLink, Modal, SectionHeading, Reveal,
-                    EmptyState
+                    EmptyState, PasswordInput (show/hide toggle)
   site/             SiteHeader, SiteFooter, SocialIcons
-  home/             Hero, Programs, Advantage, HowItWorks, Educators,
+  home/             Hero, Programs, Advantage, HowItWorks, FirstDay, Educators,
                     Testimonials, Faq, CtaBand
 src/lib/
   auth/roles.ts     ROLES, ROLE_HOME, AREA_ACCESS — edge-safe, no deps
@@ -126,8 +128,9 @@ src/lib/
   theme-server.ts   getTheme() — reads the cookie; theme-actions.ts writes it
   auth/audit.ts     recordAudit()/writeAudit() — never throws
   auth/audit-actions.ts  ACTIONS: every logged verb, its label and category
-  data/home.ts      All static home-page content (courses, stats, FAQs, …)
-  data/dashboard.ts Static enrollments + join helpers for the dashboard
+  data/home.ts      Static home-page copy that is NOT a program (stats, FAQs, …)
+  data/public-programs.ts  What a visitor sees: published programs + curriculum
+  data/dashboard.ts Pure dashboard helpers (no imports — keep it that way)
   data/course-overview.ts  Per-course metrics/sessions + getCourseOverview(slug)
   data/curriculum-db.ts  THE tree, from Mongo: getProgramCurriculum / getLearnScreen
   data/progress.ts    One student's progress, attempts and submissions, as Maps
@@ -217,9 +220,11 @@ Programs → Advantage → How it works → Educators → Testimonials → FAQ �
 Footer. Structure follows courseunbox.com and trainings.internshala.com; visuals follow
 [design.md](design.md).
 
-**All content is static**, in [src/lib/data/home.ts](src/lib/data/home.ts). The
-`Course` type there is the seam: when the Mongoose models land, swap that array for a
-query and the components need no changes.
+**The programs are read from the database** — `listPublicPrograms()` in
+[src/lib/data/public-programs.ts](src/lib/data/public-programs.ts), published only.
+Everything else on the page (stats, advantages, educators, testimonials, FAQ) is
+institution-level copy with no row anywhere and stays in
+[src/lib/data/home.ts](src/lib/data/home.ts). Each card links to `/courses/[slug]`.
 
 Everything is server-rendered except four client components, each for a real reason:
 `SiteHeader` (menus, scroll state), `Faq` (accordion), and `Reveal`/`RevealItem` (the
@@ -261,7 +266,8 @@ transparent margin is why the heading below it uses a tight `mt-4`.
 (left sidebar on desktop, bottom tab bar on mobile) is worth building when the lesson
 player lands and there is more than one real destination.
 
-Course fees in `data/home.ts` are **invented placeholders** — replace before launch.
+Course fees come from `Program.feeAmount` (paise), set on the admin fees screen. A
+program with no fee shows no price rather than "Free".
 
 ### Course overview (`/dashboard/[course]/overview`)
 
@@ -340,6 +346,23 @@ print "Course N".
 **Everything countable is derived, never stored** — `coursePercent`, `moduleStatus`,
 `topicStatus`, `courseCounts`, `moduleSeconds`. Seed data therefore cannot contradict
 itself, and a status only has to be set on subtopics.
+
+**A module's test counts towards the module (2026-09-12).** `modulePercent` and
+`moduleStatus` used to walk the subtopics only, so a module whose lessons had been
+watched read **100% and "completed" while its paper had never been opened** — and then
+the final test refused to unlock, because `finalTestLockReason` was counting the very
+paper the percentage had dropped. A number that says finished and a gate that says not
+finished cannot both be right, and the gate is the one that decides whether the student
+moves on, so the number follows it. Both now take a `ModuleView` rather than
+`TopicView[]` (five callers, all of which had the module in hand already), and count the
+test as one more unit: **sat, not passed** — the same bar the gate uses, since a module
+test has unlimited attempts and requiring a score would invent a gate that exists nowhere
+else. `topicStatus` keeps its own roll-up: a topic holds lessons and never a paper.
+
+Knock-on, and intended: a course with an unsat module test no longer reaches 100%, so
+`coursePercent`, the program totals, `defaultCourseId` and `checkpointLockReason` all
+move with it — a mid-term checkpoint now waits on module tests the way the final already
+did.
 
 Four link helpers keep every entry point honest, so no component builds a URL by hand:
 `courseDetailsHref`, `learnHref`, `moduleEntryHref` (first unfinished subtopic of a
@@ -441,8 +464,16 @@ segments are exactly the tree's top three levels; the open subtopic is `?s=`, ke
 query string so one link changes exactly one thing.
 
 Sidebar: a link back to course details, the course name, a **Module** dropdown of the
-course's modules (each with its own %), then that module's topics as accordions with
-their subtopics inside.
+course's modules (each with its own %), that module's topics as accordions with their
+subtopics inside, and — since 2026-09-12 — **the module's test** at the bottom.
+
+The test was the one thing in a module the outline never mentioned. A student could
+finish every lesson, watch the column go green and have no idea a paper was waiting; the
+only route to it was `ItemRow`'s row on the course details screen, two taps away and not
+where you are when you finish a lesson. It renders in both halves of the outline
+(`LearnSidebar` and the phone's `LearnDrawer`) as a card that is never a link that fails:
+locked shows `moduleTestLockReason` instead of a href, and once sat it shows the score
+and offers a **retake** rather than going quiet — unlimited attempts, best score counts.
 
 Layout is full-bleed (not `Container`) — it's a workspace. Sidebar 18rem, content pane
 takes the rest; from `lg` the two scroll independently inside `h-[calc(100dvh-4rem)]`
@@ -495,6 +526,44 @@ rendered as the lesson's one-line description inside the phone's detail sheet in
 Prev/Next in the footer step across the whole **course**, not just the open module —
 that's what "next" means to someone working front to back.
 
+**And past the end of it (2026-09-12).** Next used to go grey at the last subtopic of a
+course, which is the one screen where a student most needs telling what is left: the
+course is not finished when its videos are, it is finished when the module tests are sat,
+the assignment is handed in and the final is passed — none of which the lesson screen
+mentioned. A student who had watched everything saw a dead button and no reason for it,
+with the assignment two screens away behind a ⋮ menu they had no reason to open.
+
+`nextAfterLessons` (`lib/curriculum/next-step.ts`) resolves the tail of a course into a
+real step, in the order the work is actually done:
+
+    module tests still to be sat → assignments still to hand in →
+    the final test, until it is passed → the first lesson of the next course
+
+The order is not invented there — it is the list `finalTestLockReason` and
+`nextCourseLockReason` already walk when they decide what is closed. This turns those
+refusals into a *destination*. Anything the gate would block comes back with `href: null`
+and the gate's own sentence as the note, so a step that cannot open still says what would
+open it ("Finish the remaining 2 lessons in this module first").
+
+`LearnStep` therefore carries a finished `href`, a `label`, a `title` and a `note` rather
+than `{moduleId, subtopicId}` — at the end of a course the next thing is not a subtopic,
+so the server resolves it and `SubtopicSteps` decides nothing. Next reads "Module test",
+"Assignment", "Final test" or "Next course" instead of the bare "Next", and the note
+prints beside it (its own row below `sm`). Ordinary lesson-to-lesson steps are unchanged:
+no note, bare label, same hrefs as before. Only the last lesson of the last course with
+nothing outstanding leaves Next inert, which is the honest answer there.
+
+`moduleTestHref` was fixed in the same pass: it pointed at `/learn/…/test`, a route that
+was never built. Nothing called it — `ItemRow` had assembled
+`/dashboard/{slug}/tests/{course}?m={module}` by hand — so nothing was broken, and both
+callers now share the one helper.
+
+Not changed: **Prev at the *start* of a course still goes nowhere.** Crossing backwards
+into the previous course would be symmetric and is probably right, but nothing is hidden
+from the student there, so it stayed out of the fix. Same for a quiz subtopic, whose
+footer belongs to `QuizRunner` — its Next moves between questions and goes dead on the
+result screen, so a quiz at the end of a module is still a place you leave by the outline.
+
 Seed depth is uneven on purpose: `pm-c1` and `pm-c4` have full module/topic/subtopic
 trees; the other courses have one or two modules each. Verified: every course and module
 resolves, unknown course/module/program 404s, and a stale `?s=` or `?c=` falls back.
@@ -504,17 +573,37 @@ resolves, unknown course/module/program 404s, and a stale `?s=` or `?c=` falls b
 The student's half of an assignment, and **the first thing a student writes to
 the database**. Everything else they touch is a read.
 
-**It lives behind the ⋮ on the assignment row**
-([AssignmentDialog](src/components/dashboard/curriculum/AssignmentDialog.tsx)) —
-the brief as text, the brief as a document, the current hand-in and its mark, and
-the form to hand in or replace. A dialog rather than a screen because
-`/dashboard/[slug]/assignments/[key]` still does not exist and this was not the
-moment to invent it: the curriculum page is where a student meets the assignment,
-and reading a brief then attaching a file does not want a navigation away and
-back. When that screen is built the content moves there whole and the menu
-becomes a link. Trigger and dialog are one client island, so the page stays a
-server component. The menu is absent while the course is locked, like everything
-else inside it.
+**It is a Submit button on the assignment row (2026-09-12)**
+([AssignmentActions](src/components/dashboard/curriculum/AssignmentActions.tsx),
+renamed from `AssignmentDialog`) — pressing it opens the brief as text, the brief
+as a document, the current hand-in and its mark, and the form to hand in or
+replace.
+
+It used to live *behind the row's ⋮*, so the single most important act on the row
+was the least visible thing on it: an unlabelled icon next to a status badge, on a
+row whose siblings are modules you click to watch. The button says what it does —
+**Submit** while nothing is handed in, **Replace** once there is, and **View** once
+it has been marked, because "Replace" on a marked hand-in is an invitation to throw
+the mark away (handing in again clears it) and that warning belongs next to the
+control inside, not on the row.
+
+The ⋮ keeps only what an overflow menu is for: **the brief document, and only when
+the teacher attached one.** No brief file, no ⋮ — a menu whose single item is
+absent should not be a menu. It opens a `Modal` rather than a popover because the
+phone's course card clips its row list (`overflow-hidden`, so the divided rows keep
+the card's rounded corners) and an absolutely-positioned menu inside a row is a menu
+with its bottom sliced off; `Modal` is already a bottom sheet below `md`, which is
+the right shape for a row's overflow on a phone anyway, and it brings the focus trap
+and Escape with it. Both dialogs reuse `AttachmentLink` for the brief file instead
+of the hand-rolled copy that was there.
+
+Still a dialog rather than a screen because `/dashboard/[slug]/assignments/[key]`
+still does not exist and this was not the moment to invent it: the curriculum page is
+where a student meets the assignment, and reading a brief then attaching a file does
+not want a navigation away and back. When that screen is built the content moves
+there whole and the button becomes a link. Triggers and dialogs are one client
+island, so the page stays a server component. Both are absent while the course is
+locked, like everything else inside it.
 
 **Two ways in, one field out.** `Submission.fileUrl` is where the work is,
 however it got there, so everything that reads a hand-in reads one field.
@@ -549,12 +638,10 @@ Three decisions worth keeping:
   which admits an admin.** The superset rule is right for staff screens and
   wrong here: an admin has no coursework, and letting one post would drop a
   hand-in from a non-student into a teacher's grading queue.
-- **A resubmission replaces in place and clears the mark** (upsert on the unique
-  `(studentId, assignmentId)` index, back to `submitted`, `scored` and
-  `feedback` reset) — an old mark against new work is worse than no mark — and
-  the file it replaced is deleted from Cloudinary by the action, for the same
-  reason the brief's replacement is: the upload field only cleans up what it
-  uploaded in that sitting.
+- ~~A resubmission replaces in place and clears the mark~~ **Superseded
+  2026-09-14:** a hand-in is final once submitted; only a teacher's resubmission
+  request reopens it, and nothing is replaced or deleted. See "One hand-in,
+  locked — resubmission on request".
 - **`maxMarks` is copied at hand-in**, as the model already said, so a later
   change to the assignment cannot silently rescale a mark already given.
 
@@ -572,6 +659,158 @@ asset were removed afterwards.
 **Still not clicked through in a browser.** The dialog, the upload field's
 drag-and-drop and progress, and the disclosure were exercised through the action
 and the rendered HTML, not by hand.
+
+### Grading, at last (2026-09-12)
+
+The teacher's half of the loop above, and the one feature in the app that had
+been **built at both ends and never joined in the middle**. Everything around
+the write already existed:
+
+- `Submission` carried `scored`, `feedback`, `evaluatedBy` and `evaluatedAt`,
+  plus the index `{ courseId, status, submittedAt }` commented "the teacher's
+  grading queue: unmarked work on my courses".
+- The teacher role already held the `submission.grade` capability.
+- `validateGrade` sat complete and unimported in `validation/curriculum.ts`.
+- `nav.ts` pointed at `/teacher/grading` with `soon: true`.
+- The overview's "Awaiting grading" tile read an em dash, hinting "grading lands
+  with submissions".
+- `AssignmentForm` told the teacher "hand-ins are marked from the course's
+  submissions screen."
+
+None of it was ever written to. `evaluatedBy` and `evaluatedAt` appeared exactly
+twice in the whole codebase, both in `submitAssignment`, both set to `null`.
+
+**Why that was worse than a missing feature.** Every hand-in read "Awaiting
+marking" forever, which is cosmetic — but `courseMaximum` counts an assignment's
+marks in the **aggregate denominator** whether or not it has been marked, while
+`assignmentMark` contributes to the numerator only once `scored` is a number
+(both in `marksheet-db.ts`, both deliberately). So an unmarked hand-in sat at
+0/`maxMarks` in the programme aggregate permanently, and with
+`MIN_AGGREGATE_PERCENT = 75`, a programme carrying real assignment weight was
+**impossible to graduate from**. The other trap: `ASSIGNMENT_GATE_REQUIRES_MARK`
+is `false` and its own comment invites flipping it — which would have made the
+programme impassable, because nothing could mark a submission.
+
+**What landed.** `data/grading.ts` (the reads), `actions/grading.ts` (the write),
+`/teacher/grading` (the queue), `staff/grading/GradeForm.tsx` (the only client
+piece), `submission.grade` in `audit-actions.ts`, `GradeFormState`, the `soon`
+off the nav row, and the overview tile turned into a real query with a link.
+
+**Scope is a cohort, not a program** — the same rule `students.ts` follows, now
+applied at the submission itself rather than inherited from whatever screen
+reached it. Two narrowings: `ownsProgram` picks the programs, `batchScopeFor`
+picks the cohorts inside one, and the read applies both **in the query** so a bug
+shows a teacher too little rather than somebody else's students. The write
+re-derives the same answer with `ownsBatch` against the student's *enrolment* —
+`assertScope` alone is not enough, because it stops at the program and a teacher
+holding the evening cohort must not mark the morning cohort's work by posting its
+submission id. `ownsBatch` rather than `assertScope({ batch })` for the reason
+guards.ts spells out: a student on **no** cohort belongs to nobody, so only a
+program-wide holder sees them — the opposite default from a session with no
+batch.
+
+Marking uses the `maxMarks` **frozen onto the submission**, never the
+assignment's current one: marking out of a number the student was never shown is
+how a mark stops meaning what the marksheet prints.
+
+The queue sorts unmarked first, oldest first inside that — it is a queue.
+`?show=all` includes marked work so a mark can be corrected; it sorts after.
+One `useActionState` island per row rather than one form for the page, so Save
+means "this hand-in" and not "everything I have typed". Re-marking replaces the
+mark the student can already see, and the audit entry carries `previousScored`,
+because "it changed" is useless without the before.
+
+Four paths are revalidated: the queue, the teacher overview (the tile), and the
+student's `course_details` and `marksheet` — a mark the teacher gave that the
+student cannot see is the bug the feature exists to fix.
+
+**Verified against Atlas, read side, by driving `gradingQueue` /
+`pendingGradingCount` with each real staff user.** Two seeded hand-ins on
+`qa-performance-marketing`: Aarav Menon in "QA Evening Cohort", Ishita Bose on no
+cohort. Rohit (evening cohort only) sees **1** and is refused Ishita's; Sneha
+(whole program) sees **2**; both admins see **2**; Vikram (no assignments) sees
+**0**. `ownsBatch` returns the identical allow/refuse matrix the write guards
+with — checked row by row against both submissions.
+
+**The write itself has not been executed.** `markSubmission` reads a session
+through `requireRole`, so it cannot be driven from a CLI script, and nothing was
+written to the shared cluster. It typechecks, lints and builds; it has not marked
+a real hand-in. That is the first thing to click through.
+
+### One hand-in, locked — resubmission on request (2026-09-14)
+
+A student used to be able to replace a hand-in at will (and so wipe its mark).
+Now: **submit once → locked → teacher grades, or requests a resubmission →
+only then may the student hand in again.** The vocabulary and the one rule live
+in [lib/curriculum/submission-status.ts](src/lib/curriculum/submission-status.ts)
+(`SUBMISSION_STATUSES`, `canHandIn`, `submissionStatusLabel`, `HAND_IN_LOCKED`).
+
+**Data model — additive, one row still.** `Submission.status` gains
+`resubmission_requested`; new `version` (1, +1 per resubmission), `resubmission`
+(`{reason, requestedBy, requestedAt}` while open) and `history[]` (each
+sent-back version: file, note, dates, **its mark and feedback if it had one**,
+the reason). The top-level fields stay "the current version", so every existing
+reader works unchanged. Pre-existing rows have no `version`/`history`; readers
+use `?? 1` / `?? []` because `lean()` applies no defaults. No migration needed.
+
+**The lock is the writes, not a read.** `submitAssignment`: a first hand-in is
+`$setOnInsert` upsert (never overwrites; a racing duplicate hits the unique
+index → refused); otherwise an update filtered on
+`status: "resubmission_requested"` that also moves it out of that status — so a
+request is good for exactly one hand-in. Superseded Cloudinary files are **no
+longer deleted** (history points at them), and a refused post's upload is not
+deleted either (the posted JSON can't be trusted to name an orphan).
+
+**Teacher.** `requestResubmission` in `actions/grading.ts` shares
+`loadInScope` (capability + `ownsBatch`) with `markSubmission`. It snapshots the
+current version into `history`, clears the top-level mark (so the marksheet
+shows a dash until the redo is marked), and is conditional on `updatedAt` so a
+concurrent re-mark is not lost. `markSubmission` refuses a sent-back hand-in.
+Audit verbs: `submission.resubmit`, `submission.requestResubmission`. The queue
+card shows version, "Resubmitted · awaiting marking", `SubmissionHistory`, and a
+"Request resubmission" panel with an optional reason; a sent-back card shows the
+request instead of the grade form.
+
+**Gates deliberately unchanged.** `resubmission-requested` (the view `Status`)
+counts as done in `DONE` / `isFinished`: handing in is what opens the next
+course, and a redo request must not re-lock a course or term paper the student
+already moved into. The row badge ("Redo requested", warning tone + icon) and
+the primary **Resubmit** button carry the urgency instead.
+
+**Student dialog (`AssignmentActions`).** Leads with the state: graded → large
+score, `/max`, percent, "Your score", then a Teacher feedback card
+(`whitespace-pre-line`, or "No feedback provided."); sent back → warning panel
+with the reason quoted and the previous mark/feedback; submitted → locked
+notice. The form only exists while `canHandIn`. **Submit never hands in by
+itself**: it opens `ConfirmDialog` (which gained `details` and `pendingLabel`),
+and only Confirm dispatches; an in-flight ref stops a same-frame double click;
+a thrown action returns a sentence instead of hitting an error boundary. An
+empty form skips the confirmation and goes to the server for field errors.
+
+**`Modal` can nest now.** A Modal inside a Modal portals to `<body>` (a `fixed`
+child of the animated panel would position against it) and only the top of a
+module-level stack answers Escape/Tab. Top-level modals are *not* portaled —
+several sit inside the `<form>` whose fields they carry.
+
+**Verified end to end** by `qa/check-resubmission.mjs` (11/11) against a fresh
+`next start` build, as qa.student1 and qa.teacher.a, on a throwaway assignment
+it creates and removes (with its submissions and audit rows): confirmation
+writes nothing and Escape closes only it; a double-clicked Confirm sends one
+request and writes one row; refresh stays locked; five concurrent replays of
+the student's captured action with a changed file are refused; grade → score
+and feedback render above the brief; request → v1 and its 60/100 in history,
+mark cleared; replayed mark on a sent-back row refused; the teacher's request
+replayed with a student session changes nothing; v2 lands once and its replay is
+refused; v2 graded 85 and sent back again (two-entry history); legacy rows
+render. `WORK-06` in phase12 now asserts the lock.
+
+**Gotcha — restart `next dev` after changing a Mongoose schema.**
+`models.X ?? model(...)` survives HMR, so a long-running dev server keeps the
+old schema and strict mode silently drops new fields from updates. The first
+run of the check against a stale dev server wrote rows with no `version` or
+`history`.
+
+Not built: withdrawing a resubmission request, and a due date for the redo.
 
 ### Mid-term and end-term assessments
 
@@ -1026,8 +1265,10 @@ checking what the student actually gets. The description is `whitespace-pre-line
 not markdown, for the reason the reading subtopic gives.
 
 The teacher's mobile tab bar took Tasks in **Grading's** slot (five primary
-items is the cap): Grading is still a disabled "Soon" row, and a real screen
-beats a placeholder for the last tab.
+items is the cap). Grading was a disabled "Soon" row at the time and a real
+screen beats a placeholder for the last tab; Grading is built now (see below)
+but stays out of the tab bar for the same reason — the cap has not moved. It is
+in the sidebar, and the overview's "Awaiting grading" tile links to it.
 
 Verified against Atlas by replaying the real no-JS form posts as
 `rohit.teacher@` and `priya.manager@`, and by driving the loaders directly: the
@@ -1260,6 +1501,33 @@ it may have been deleted by hand, and inventing a status would hide that.
 a record the author has not committed — is about an *open form*, and says
 nothing about a row already in the database, which is what this is for.
 
+### Student onboarding: landing page and sign-in (2026-10-27)
+
+The public face a new student meets, tightened up for onboarding.
+
+- **Hero** is two columns on desktop: the pitch on the left, a still of the
+  student dashboard on the right (`DashboardPreview` in `Hero.tsx`, illustrative
+  copy, `role="img"`). Under the CTAs, an "Already enrolled? Sign in / see how to
+  get started" line for returning students.
+- **`FirstDay`** (`#get-started`, after How It Works): the four steps from
+  enrolment to first class, in the order the app enforces them: staff-made
+  account, forced password change, fee gate, dashboard. The copy is `FIRST_DAY`
+  in `data/home.ts`; change it if that flow changes. Not in the header nav,
+  because a sixth item wraps the nav at 1440px.
+- **`/login` and `/account/password`** share `AuthShell`: a dark brand panel
+  (fixed `night-*` tokens, so it looks the same in both themes) beside the form,
+  dropped on mobile. The login form gained a mail icon, a show/hide password
+  toggle (`ui/PasswordInput`, also on the change form), a spinner while signing
+  in, and a "First time signing in?" hint. "Forgot password?" is a pre-filled
+  mailto to support because **there is no self-serve reset flow yet**.
+- **Bug fixed in `Reveal`:** it rendered a plain tag when the visitor had reduced
+  motion on. The server cannot know that setting, so it rendered the motion
+  version at opacity 0, React did not patch the mismatch, and the hero and every
+  revealed section were invisible to those visitors. It now always renders the
+  motion element under `MotionConfig reducedMotion="user"`. The FAQ accordion
+  still logs a harmless hydration warning under reduced motion (its open panel's
+  inline style); its content is visible.
+
 ### A student can now sit a module test
 
 Built 5 September 2026. A teacher could author a module test and
@@ -1335,6 +1603,80 @@ A refusal is logged in development rather than shown. A completion that fails
 silently is the bug this whole section exists to fix, and the next one would
 have been just as invisible.
 
+### Public programs, curriculum page and Details
+
+Built 10 September 2026.
+
+The home page advertised **four hardcoded programs** from a `COURSES` array in
+`data/home.ts`. They were not rows, so the site sold courses the LMS did not
+have and hid every program created through the admin UI. Every card linked to
+`/courses/[slug]`, which had no route and 404'd.
+
+Three things landed together.
+
+**`Program.marketing`** — a nested sub-object holding what a prospective student
+sees: tagline, description, cover (WebP ≤ 2 MB), level, highlights, tools,
+`placementGuarantee`, offers, `newBadge`, `nextBatch`. Nested rather than nine
+columns because `saveProgram` writes an explicit field list, so editing a
+deadline cannot wipe the copy and editing the copy cannot touch the slug. **Null
+means nobody has filled it in**, which is a working state: the public pages fall
+back to title, summary and the real curriculum rather than to placeholder text.
+
+The price is *not* in there — `feeAmount`/`listAmount` already exist in paise
+with an admin screen. Nor are duration, module or lesson counts: all derived, so
+the number above the syllabus cannot disagree with the syllabus.
+
+**`Course.startMonth` / `endMonth`** — what `/courses/[slug]` prints beside each
+course ("Month 1", "Months 2–3"). Explicit rather than derived from `order`,
+because courses are not one per month: two can share Month 1, one can span two,
+and the numberless checkpoints sit between them. Both null prints no month
+rather than a guess. `lib/curriculum/months.ts` groups *consecutive* courses
+sharing a span — the timeline is a label on teaching order, never a re-sort.
+
+**The Details screen** — `/admin/programs/[program]/details` and its
+`/manager/...` mirror, sharing `ProgramDetailsEditor`. Admin **and program
+manager** (`program.market`); a teacher gets neither, on the same reasoning that
+keeps `/fees` away from them — a placement guarantee is a claim made on behalf
+of the institution. Its own route rather than a section of `ProgramForm` because
+of the cover: `saveModuleMaterial` records the bug where a picker inside a
+multi-purpose form re-posted a file from a stale tab. The WebP/2 MB rule needed
+no new code — `FILE_KIND_SPECS.image` and the unused `programs` upload scope
+were already exactly that.
+
+**What the array's removal touched.** Three consumers needed thought rather than
+a swap:
+
+| Site | Why it was hard | What it does now |
+|---|---|---|
+| `SiteHeader` | `"use client"` — cannot read Mongo | takes `programs` as a prop; `PublicHeader` in `SiteChrome.tsx` loads them with the theme |
+| `data/dashboard.ts` | reachable from a client component, so no `server-only` in its chain | catalogue join moved to `availablePrograms()`; the module now has **zero imports**, making its purity structural |
+| `validation/enquiry.ts` | pure, shared client + server | `validateEnquiry(input, { programs })` — the client checks membership, the **server stays lenient**: an enquiry is a lead, and 422-ing someone whose page loaded before a rename loses a sale over a free-text column |
+
+`app/manager/page.tsx` moved to `programsFor(user)`, which fixes a live bug — a
+manager assigned to an admin-created program saw zero programs.
+`data/people.ts` `programTitle()` is gone in favour of `programTitles(slugs)`.
+
+`data/home.ts` keeps only what has no row: stats, advantages, educators,
+testimonials, FAQ. The old array survives as `LEGACY_PROGRAMS` in the superseded
+`data/curriculum.ts`, where the migration script is its only reader.
+
+**Counts are chained, not flat.** Every node denormalises `programId`, so
+`Module.countDocuments({ programId, status: "published" })` would count a
+published module inside a *draft* course — lessons nobody can reach, in a number
+shown as a promise. `listPublicPrograms` walks program → course → module → topic
+→ subtopic instead.
+
+**No backfill.** One was written and then deleted: none of the four advertised
+slugs (`performance-marketing`, `seo-aeo-geo`, `ai-marketing`,
+`social-media-marketing`) has a row in `lms_db`, so there was no copy to
+preserve. The database holds two QA programs, and those are what the site now
+shows.
+
+**Not verified:** the program-manager path. No manager credential was available
+locally, so admin-yes and teacher-no were exercised and manager access was not.
+It shares `requireRole("program_manager")` + `assertScope` with every other
+`/manager` route.
+
 ### Program identity comes from the collection, not from `data/home.ts`
 
 Fixed 5 September 2026. Several screens used to answer "does this program
@@ -1358,21 +1700,9 @@ a listing that has to label rows it already loaded, and `programsFor(user)` for
 "what may this person act on". `schedulableProgramsFor` became async as a
 result, and its three page callers await it.
 
-`data/home.ts` is **not** going away and the two are still joined on `slug`.
-They are not duplicates: the public home page must render without a database
-read of content only signed-in students are entitled to. That file keeps the
-tagline, the cover and the fee; the collection answers who exists.
-
-**Still on the static array**, deliberately not touched here:
-
-- `data/course-overview.ts` — the whole module is a documented placeholder
-  ("Static placeholder... When the models land it becomes an async database
-  read"), and the student's overview screen still 404s for a real program. It
-  renders `durationWeeks`, `modules` and `lessons`, none of which the `Program`
-  collection carries, so this is a migration rather than a swap.
-- `app/manager/page.tsx` — same three marketing fields, same reason.
-- `data/people.ts` `programTitle()` — display only, with a `?? slug` fallback,
-  and synchronous in a place that would have to become async.
+At the time this was written `data/home.ts` was kept, on the reasoning that the
+public page must render without a database read. **That array is now gone** — see
+"Public programs, curriculum page and Details" above.
 - `data/dashboard.ts` — the catalog of programs a student is *not* on, which is
   a marketing surface and arguably belongs on the marketing array.
 
@@ -2518,8 +2848,9 @@ header saying not to add a caller in the meantime.
 **Not yet done:** writing progress from the student side (marking a subtopic
 complete, and the reading/PDF panes recording that they were read), the module
 test on the student side (the runner serves final tests and term papers; a
-module test has no entry point yet), grading a hand-in from the teacher's side,
-and teaching `QuizRunner` the three new question kinds. The assignment hand-in,
+module test has no entry point yet) and teaching `QuizRunner` the three new
+question kinds. Grading a hand-in from the teacher's side landed on 2026-09-12
+— see "Grading, at last". The assignment hand-in,
 the term papers, the test runner and the marksheet rewrite all landed — see
 their own sections.
 
@@ -3173,7 +3504,6 @@ the pages turn into a 404):
 
 | Module | Seam | Feeds |
 |---|---|---|
-| `data/home.ts` | `COURSES` array | marketing site, program titles everywhere |
 | `data/course-overview.ts` | `getCourseOverview(slug)` | overview metrics only — its schedule is real now |
 
 `Submission` is now written as well as read: a student hands in from the
@@ -3200,10 +3530,11 @@ were never in scope):
   hand-in form live behind the ⋮ on the assignment row instead. See "Handing
   work in".
 - `/dashboard/[slug]/placement`, `/dashboard/[slug]/sessions/[id]` — overview cards
-- `/dashboard/forum`, `/refer`, `/courses/[slug]` — header, banner, catalog
+- `/dashboard/forum`, `/refer` — header, banner
 - Staff screens shown as disabled "Soon" in the sidebar: `/admin/enquiries`,
-  `/admin/settings`, `/manager/enquiries`, `/teacher/grading`
-  (`/admin/audit` is built — see "Audit log")
+  `/admin/settings`, `/manager/enquiries`
+  (`/admin/audit` and `/teacher/grading` are built — see "Audit log" and
+  "Grading, at last")
 
 **Other things to know:**
 
@@ -3231,7 +3562,6 @@ were never in scope):
   percentage.
 - The three footer tools on the learning screen (Q&A forum, Test your code, Practice
   questions) are inert buttons.
-- Course fees in `data/home.ts` are invented — replace before launch.
 - `Subtopic.caption` exists but is no longer rendered (see the learning-screen notes).
 - `EnquiryDialog` duplicates the `Modal` primitive's logic; see Decisions.
 - **Admin can open `/dashboard`** and sees the static student view. Harmless, but it is
@@ -3631,7 +3961,9 @@ both shapes exist locally — but the cohort it names is a label
 `npm run seed:batches` has to turn into a real `Batch` row first. And a batch
 teacher's `getMarksheet` / grading reads are scoped by the student screens that
 reach them rather than at the submission itself; that is fine while every route
-in goes through `studentDetail`, and worth revisiting if a grading queue lands.
+in goes through `studentDetail`. **The grading queue landed, and it is scoped at
+the submission itself** — `batchScopeFor` narrows the read and `ownsBatch` guards
+the write. See "Grading, at last".
 
 ### The lesson screen, rebuilt for a phone (2026-09-04)
 

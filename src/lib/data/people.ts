@@ -2,7 +2,6 @@ import "server-only";
 
 import { connectToDatabase } from "@/lib/db";
 import { isRole, type Role } from "@/lib/auth/roles";
-import { COURSES } from "@/lib/data/home";
 import { Batch } from "@/models/Batch";
 import { Course } from "@/models/Course";
 import { Program } from "@/models/Program";
@@ -134,11 +133,6 @@ export async function assignablePrograms(): Promise<
       .filter((batch) => batch.programSlug === program.slug)
       .map((batch) => batch.name),
   }));
-}
-
-/** Program titles for an assignment list, falling back to the raw slug. */
-export function programTitle(slug: string): string {
-  return COURSES.find((course) => course.slug === slug)?.title ?? slug;
 }
 
 type Lean = {

@@ -52,6 +52,10 @@ const ADMIN_NAV: NavItem[] = [
   { label: "Programs", href: "/admin/programs", icon: "programs", capability: "program.view", primary: true },
   { label: "Students", href: "/admin/students", icon: "students", capability: "marks.view", primary: true },
   { label: "Tasks", href: "/admin/tasks", icon: "tasks", capability: "task.assign" },
+  // Points into the teacher area, as Batches and Sessions point into the
+  // manager's: the screen is the same screen, and an admin holds every cohort
+  // in it. Building an `/admin/grading` twin would be a second copy of a queue.
+  { label: "Grading", href: "/teacher/grading", icon: "grading", capability: "submission.grade" },
   { label: "Batches", href: "/manager/batches", icon: "batches", capability: "batch.view" },
   { label: "Sessions", href: "/manager/sessions", icon: "sessions", capability: "session.view", primary: true },
   { label: "Enquiries", href: "/admin/enquiries", icon: "enquiries", capability: "enquiry.view", soon: true, primary: true },
@@ -73,7 +77,7 @@ const TEACHER_NAV: NavItem[] = [
   { label: "My programs", href: "/teacher/programs", icon: "programs", capability: "curriculum.author", primary: true },
   { label: "Students", href: "/teacher/students", icon: "students", capability: "marks.view", primary: true },
   { label: "Tasks", href: "/teacher/tasks", icon: "tasks", capability: "task.assign", primary: true },
-  { label: "Grading", href: "/teacher/grading", icon: "grading", capability: "submission.grade", soon: true },
+  { label: "Grading", href: "/teacher/grading", icon: "grading", capability: "submission.grade" },
   { label: "Sessions", href: "/teacher/sessions", icon: "sessions", capability: "session.view", primary: true },
 ];
 

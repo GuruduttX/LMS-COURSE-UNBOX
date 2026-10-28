@@ -56,12 +56,18 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   tone = "danger",
   acknowledge,
+  details,
+  pendingLabel = "Working…",
 }: ConfirmCopy & {
   isOpen: boolean;
   onCancel: () => void;
   onConfirm: () => void;
   /** Keeps the dialog open and the button busy while the action runs. */
   pending?: boolean;
+  /** Anything a sentence can't carry — a checklist — under the message. */
+  details?: React.ReactNode;
+  /** What the confirm button says while `pending`. */
+  pendingLabel?: string;
 }) {
   const titleId = useId();
 
@@ -85,6 +91,8 @@ export function ConfirmDialog({
         cancelLabel={cancelLabel}
         tone={tone}
         acknowledge={acknowledge}
+        details={details}
+        pendingLabel={pendingLabel}
         pending={pending}
         onCancel={onCancel}
         onConfirm={onConfirm}
@@ -101,12 +109,16 @@ function Body({
   cancelLabel,
   tone,
   acknowledge,
+  details,
+  pendingLabel,
   pending,
   onCancel,
   onConfirm,
 }: Required<Omit<ConfirmCopy, "acknowledge">> & {
   titleId: string;
   acknowledge?: string;
+  details?: React.ReactNode;
+  pendingLabel: string;
   pending: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -134,6 +146,7 @@ function Body({
           <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-ink-600">
             {message}
           </p>
+          {details ? <div className="mt-3">{details}</div> : null}
         </div>
       </div>
 
@@ -169,7 +182,7 @@ function Body({
           onClick={onConfirm}
           disabled={pending || blocked}
         >
-          {pending ? "Working…" : confirmLabel}
+          {pending ? pendingLabel : confirmLabel}
         </Button>
       </div>
     </>

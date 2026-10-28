@@ -724,12 +724,20 @@ function AssignmentsPanel({
                 {row.submission ? (
                   <Chip
                     tone={
-                      row.submission.status === "evaluated" ? "good" : "muted"
+                      row.submission.status === "evaluated"
+                        ? "good"
+                        : row.submission.status === "resubmission_requested"
+                          ? "warn"
+                          : "muted"
                     }
                   >
                     {row.submission.status === "evaluated"
                       ? `${row.submission.scored} / ${row.maxMarks}`
-                      : "Awaiting marking"}
+                      : row.submission.status === "resubmission_requested"
+                        ? "Resubmission requested"
+                        : row.submission.version > 1
+                          ? "Resubmitted · awaiting marking"
+                          : "Awaiting marking"}
                   </Chip>
                 ) : (
                   <Chip tone="warn">Not handed in</Chip>

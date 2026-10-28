@@ -184,6 +184,40 @@ export function CourseForm({
             />
           </Field>
         </FieldRow>
+
+        <FieldRow>
+          <Field
+            id="startMonth"
+            label="Starting month"
+            error={state.errors.startMonth}
+            hint="Which month of the programme this runs in. It is what the public page prints beside the course — leave both blank and no month is shown."
+          >
+            <TextInput
+              id="startMonth"
+              name="startMonth"
+              inputMode="numeric"
+              defaultValue={values.startMonth}
+              placeholder="1"
+              hasError={Boolean(state.errors.startMonth)}
+            />
+          </Field>
+
+          <Field
+            id="endMonth"
+            label="Ending month"
+            error={state.errors.endMonth}
+            hint="Only if it spans more than one month. Blank means it sits inside the starting month."
+          >
+            <TextInput
+              id="endMonth"
+              name="endMonth"
+              inputMode="numeric"
+              defaultValue={values.endMonth}
+              placeholder="2"
+              hasError={Boolean(state.errors.endMonth)}
+            />
+          </Field>
+        </FieldRow>
       </FormSection>
     </FormLayout>
   );

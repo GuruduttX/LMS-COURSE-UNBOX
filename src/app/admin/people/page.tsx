@@ -10,9 +10,9 @@ import { ROLES, ROLE_LABEL } from "@/lib/auth/roles";
 import {
   listPeople,
   parsePeopleFilters,
-  programTitle,
   type PersonRow,
 } from "@/lib/data/people";
+import { programTitles } from "@/lib/data/programs";
 
 /**
  * Everyone in the system. Filters are URL state (`?role=&status=&q=`) — the
@@ -39,6 +39,16 @@ export default async function PeoplePage({
     q: first(query.q),
   });
   const people = await listPeople(filters);
+
+  // One query for the page rather than one per row — and against the `Program`
+  // collection, which is the register of what exists. This used to look titles
+  // up in the static home-page array, so every program created through the
+  // admin UI printed as its raw slug.
+  const titles = await programTitles(
+    people.flatMap((person) =>
+      person.assignments.map((item) => item.programSlug),
+    ),
+  );
   const hasFilters = Boolean(filters.role || filters.status || filters.q);
 
   return (
@@ -177,7 +187,7 @@ export default async function PeoplePage({
                       {ROLE_LABEL[person.role]}
                     </td>
                     <td className="px-4 py-3 text-xs text-ink-600">
-                      {assignedSummary(person)}
+                      {assignedSummary(person, titles)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={person.status} />
@@ -212,7 +222,7 @@ export default async function PeoplePage({
                   <StatusBadge status={person.status} />
                 </div>
                 <p className="mt-2 text-xs text-ink-600">
-                  {ROLE_LABEL[person.role]} · {assignedSummary(person)}
+                  {ROLE_LABEL[person.role]} · {assignedSummary(person, titles)}
                 </p>
                 <p className="mt-1 text-xs text-ink-500">
                   Last sign-in {formatWhen(person.lastLoginAt)}
@@ -238,13 +248,16 @@ function StatusBadge({ status }: { status: "active" | "suspended" }) {
   );
 }
 
-function assignedSummary(person: PersonRow): string {
+function assignedSummary(
+  person: PersonRow,
+  titles: Map<string, string>,
+): string {
   if (person.role === "admin") return "Everything";
   if (person.assignments.length === 0) return "—";
 
   return person.assignments
     .map((item) => {
-      const title = programTitle(item.programSlug);
+      const title = titles.get(item.programSlug) ?? item.programSlug;
       // A teacher's real scope is their cohorts, so the row says which. No
       // batches means every batch (models/User.ts) and prints as the bare
       // program title, which is what "all of it" has always looked like here.

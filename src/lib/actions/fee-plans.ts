@@ -34,6 +34,7 @@ import { Types } from "mongoose";
 import { writeAudit } from "@/lib/auth/audit";
 import { assertScope, requireRole } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
+import { revalidatePublic } from "@/lib/actions/revalidate";
 import { connectToDatabase } from "@/lib/db";
 import { formatPaise, parseRupees } from "@/lib/payments/money";
 import { createPlan, mode } from "@/lib/payments/razorpay";
@@ -148,6 +149,9 @@ export async function setProgramFee(
 
   revalidatePath(`/admin/programs/${programSlug}/fees`);
   revalidatePath("/dashboard");
+  // The price is on the public card and the program page, so setting it is a
+  // change to the site as much as to the roster.
+  revalidatePublic(programSlug);
 
   return { ok: true, errors: {}, values };
 }

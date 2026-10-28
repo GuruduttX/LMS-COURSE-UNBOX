@@ -4,10 +4,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircle2,
   ChevronDown,
+  CircleDashed,
   FileText,
   Layers,
   Lock,
   Menu,
+  PencilLine,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -17,10 +19,20 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { cn } from "@/lib/cn";
 import { formatDuration, formatReadTime } from "@/lib/curriculum/format";
 import { SUBTOPIC_KIND_ICON } from "@/lib/curriculum/kinds";
-import { learnHref, materialHref, moduleEntryHref } from "@/lib/curriculum/links";
-import { modulePercent } from "@/lib/curriculum/status";
+import {
+  learnHref,
+  materialHref,
+  moduleEntryHref,
+  moduleTestHref,
+} from "@/lib/curriculum/links";
+import { modulePercent, moduleTestLockReason } from "@/lib/curriculum/status";
 import { DURATION, EASE_IN_SOFT, EASE_OUT_SOFT } from "@/lib/motion";
-import type { LearnScreen, SubtopicView, TopicView } from "@/lib/curriculum/types";
+import type {
+  LearnScreen,
+  ModuleView,
+  SubtopicView,
+  TopicView,
+} from "@/lib/curriculum/types";
 
 /**
  * The mobile outline: a hamburger, and a drawer that slides in from the left.
@@ -225,6 +237,24 @@ export function LearnDrawer({
                     ))}
                   </ol>
                 </section>
+
+                {/* The module's test, for the reason the sidebar gives: it is
+                    the last thing in the module and it was the one thing in
+                    the module the outline never showed. */}
+                {module.test ? (
+                  <section>
+                    <h3 className="text-2xs font-semibold uppercase tracking-[0.12em] text-ink-500">
+                      Module test
+                    </h3>
+                    <div className="mt-2">
+                      <ModuleTestCard
+                        programSlug={program.slug}
+                        courseId={course.id}
+                        module={module}
+                      />
+                    </div>
+                  </section>
+                ) : null}
               </div>
             </motion.div>
           </div>
@@ -298,7 +328,7 @@ function ModuleSwitcher({
                     {item.number}. {item.title}
                   </span>
                   <span className="shrink-0 text-2xs font-bold tabular-nums text-ink-500">
-                    {modulePercent(item.topics)}%
+                    {modulePercent(item)}%
                   </span>
                 </Link>
               </li>
@@ -307,6 +337,83 @@ function ModuleSwitcher({
         </Collapse>
       </div>
     </section>
+  );
+}
+
+/**
+ * The way into the module's test, or the reason it will not open yet — the
+ * phone's copy of the sidebar's card, down to `active:` for `hover:`.
+ */
+function ModuleTestCard({
+  programSlug,
+  courseId,
+  module: view,
+}: {
+  programSlug: string;
+  courseId: string;
+  module: ModuleView;
+}) {
+  const test = view.test;
+  if (!test) return null;
+
+  const reason = moduleTestLockReason(view);
+  const best = test.best;
+
+  const body = (
+    <>
+      <span className="w-4 shrink-0">
+        {best ? (
+          <CheckCircle2 size={15} aria-hidden className="text-success-500" />
+        ) : reason ? (
+          <Lock size={14} aria-hidden className="text-ink-400" />
+        ) : (
+          <CircleDashed size={15} aria-hidden className="text-ink-400" />
+        )}
+      </span>
+
+      <PencilLine
+        size={15}
+        aria-hidden
+        className={cn("shrink-0", reason ? "text-ink-300" : "text-brand-600")}
+      />
+
+      <span className="min-w-0 flex-1">
+        <span
+          className={cn(
+            "block text-sm font-semibold",
+            reason ? "text-ink-500" : "text-ink-900",
+          )}
+        >
+          {test.title}
+        </span>
+        <span className="mt-0.5 block text-2xs font-medium text-ink-500">
+          {reason ??
+            (best
+              ? `Scored ${best.scored}/${best.maxScore} · retake to improve it`
+              : `${test.questionCount} ${test.questionCount === 1 ? "question" : "questions"} · ${test.durationMinutes} min`)}
+        </span>
+      </span>
+    </>
+  );
+
+  const className =
+    "flex min-h-14 w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-left";
+
+  if (reason) {
+    return (
+      <div className={cn(className, "opacity-80")} aria-disabled>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={moduleTestHref(programSlug, courseId, view.id)}
+      className={cn(className, "transition-colors active:bg-ink-50")}
+    >
+      {body}
+    </Link>
   );
 }
 

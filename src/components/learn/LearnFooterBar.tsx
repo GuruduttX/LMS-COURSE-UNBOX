@@ -2,8 +2,7 @@ import { ChevronLeft, ChevronRight, Code2, MessagesSquare, Sparkles } from "luci
 import Link from "next/link";
 
 import { cn } from "@/lib/cn";
-import { learnHref } from "@/lib/curriculum/links";
-import type { LearnScreen } from "@/lib/curriculum/types";
+import type { LearnScreen, LearnStep } from "@/lib/curriculum/types";
 
 /**
  * Sticky bar under the content pane: the three side-tools on the left, the
@@ -30,30 +29,49 @@ export function LearnFooterBar({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* `ml-auto` so Prev/Next stay right-aligned once the tools above are
-          hidden and `justify-between` has only one child to work with. */}
-      <div className="ml-auto flex items-center gap-1">{children}</div>
+          hidden and `justify-between` has only one child to work with.
+
+          Wrapping, because Next can carry a sentence beside it at the end of a
+          course ("Hand in … to finish this course") and on a phone that
+          sentence is wider than what is left of the row. It takes a line of its
+          own there and sits inline everywhere else. */}
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-x-1 gap-y-1.5">
+        {children}
+      </div>
     </div>
   );
 }
 
-/** Prev/Next across the whole course — the controls a video pane gets. */
+/**
+ * Prev/Next across the whole course — the controls a video pane gets.
+ *
+ * Both steps arrive from the server already resolved to an href and a label
+ * (`nextAfterLessons`), so this decides nothing: at the last lesson of a course
+ * Next reads "Assignment" or "Final test" or "Next course" rather than going
+ * grey, and when the thing it points at is closed it stays inert but prints
+ * *why*. A dead control with no explanation was the whole bug — a student who
+ * had watched every video was told only that they could not continue.
+ */
 export function SubtopicSteps({ screen }: { screen: LearnScreen }) {
-  const { program, course, prev, next } = screen;
+  const { prev, next } = screen;
 
   return (
     <>
-      <StepLink
-        href={prev ? learnHref(program.slug, course.id, prev.moduleId, prev.subtopicId) : null}
-        label="Prev"
-        title={prev?.title}
-        direction="prev"
-      />
-      <StepLink
-        href={next ? learnHref(program.slug, course.id, next.moduleId, next.subtopicId) : null}
-        label="Next"
-        title={next?.title}
-        direction="next"
-      />
+      {/* Before the buttons rather than after, so it reads as a caption on the
+          pair and doesn't push Next off the right edge of a narrow footer. */}
+      {next?.note ? (
+        <p
+          className={cn(
+            "order-first w-full text-right text-2xs font-medium sm:order-0 sm:w-auto sm:max-w-88",
+            next.href ? "text-ink-500" : "text-ink-600",
+          )}
+        >
+          {next.note}
+        </p>
+      ) : null}
+
+      <StepLink step={prev} fallbackLabel="Prev" direction="prev" />
+      <StepLink step={next} fallbackLabel="Next" direction="next" />
     </>
   );
 }
@@ -73,16 +91,17 @@ export function StepIcon({ direction }: { direction: "prev" | "next" }) {
 
 /** Disabled ends are rendered as text, not dead links — nothing to focus. */
 function StepLink({
-  href,
-  label,
-  title,
+  step,
+  fallbackLabel,
   direction,
 }: {
-  href: string | null;
-  label: string;
-  title?: string;
+  step: LearnStep | null;
+  /** What the control says when there is no step at all — the ends of the run. */
+  fallbackLabel: string;
   direction: "prev" | "next";
 }) {
+  const label = step?.label ?? fallbackLabel;
+
   const inner = (
     <>
       {direction === "prev" ? <StepIcon direction="prev" /> : null}
@@ -91,15 +110,18 @@ function StepLink({
     </>
   );
 
-  if (!href) {
+  // No step, or a step whose destination is closed. Both are inert, but only
+  // the second has anything to say — and it says it in the note beside us,
+  // which is why nothing is repeated here.
+  if (!step?.href) {
     return <span className={cn(STEP_CLASS, STEP_INERT)}>{inner}</span>;
   }
 
   return (
     <Link
-      href={href}
+      href={step.href}
       scroll={false}
-      title={title}
+      title={step.title}
       className={cn(STEP_CLASS, STEP_ACTIVE)}
     >
       {inner}

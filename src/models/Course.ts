@@ -32,6 +32,23 @@ const courseSchema = new Schema(
     title: { type: String, required: true, trim: true, maxlength: 140 },
     summary: { type: String, default: "", trim: true, maxlength: 600 },
     completeBy: { type: Date, default: null },
+    /**
+     * Which month of the programme this course runs in — what the public
+     * curriculum page prints beside it ("Month 1", "Months 2–3").
+     *
+     * Explicit rather than derived from `order`, because courses are not one per
+     * month: two short ones can share Month 1 and a heavy one can span two. A
+     * derived month would be a number nobody chose, printed as though somebody
+     * had — and the checkpoints, which have no `number`, sit between courses and
+     * would shift it.
+     *
+     * Null on both means the timeline is not decided yet. The public page then
+     * prints the course with no month rather than guessing one, which is the
+     * same call `completeBy` makes about dates.
+     */
+    startMonth: { type: Number, default: null, min: 1, max: 36 },
+    /** Null alongside a `startMonth` means the course sits inside that month. */
+    endMonth: { type: Number, default: null, min: 1, max: 36 },
     /** Contiguous 0..n-1 within the program; rewritten wholesale on reorder. */
     order: { type: Number, required: true },
     status: { type: String, enum: NODE_STATUSES, default: "draft" },

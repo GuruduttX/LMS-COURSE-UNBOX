@@ -1,105 +1,14 @@
 /**
- * Static content for the logged-out home page.
+ * Static content for the logged-out home page that is **not** a program.
  *
- * Everything here is placeholder copy modelled on courseunbox.com. When the
- * Course/Module/Lesson models land, the courses array is the first thing to
- * swap for a database query — the component props already match its shape.
+ * The stats, the pitch, the educators, the testimonials and the FAQ: copy about
+ * the institution, with no row in any collection and no plan to acquire one.
+ *
+ * The programs used to be here too, in a `COURSES` array. They are rows now —
+ * see `data/public-programs.ts`, and `models/Program.ts` for why that array had
+ * to go. Do not add another list of programs to this file; a second answer to
+ * "what do we teach" is the exact problem that one caused.
  */
-
-export type Course = {
-  slug: string;
-  title: string;
-  tagline: string;
-  level: "Beginner" | "Intermediate" | "Advanced";
-  durationWeeks: number;
-  modules: number;
-  lessons: number;
-  highlights: string[];
-  tools: string[];
-  /** Placeholder pricing in ₹ — replace with real fees before launch. */
-  fee: number;
-  nextBatch: string;
-  isNew?: boolean;
-  /** Tailwind classes for the card's cover band. */
-  cover: string;
-};
-
-export const COURSES: Course[] = [
-  {
-    slug: "performance-marketing",
-    title: "Performance Marketing",
-    tagline: "Run paid campaigns that pay for themselves",
-    level: "Beginner",
-    durationWeeks: 10,
-    modules: 8,
-    lessons: 62,
-    highlights: [
-      "Google, Meta & LinkedIn Ads",
-      "₹50,000 live ad-spend simulation",
-      "Attribution & ROAS reporting",
-    ],
-    tools: ["Google Ads", "Meta Ads", "GA4", "Looker Studio"],
-    fee: 34999,
-    nextBatch: "Next batch starts 8 Sep",
-    isNew: true,
-    cover: "from-brand-solid to-brand-solid-active",
-  },
-  {
-    slug: "seo-aeo-geo",
-    title: "SEO, AEO & GEO",
-    tagline: "Rank on Google and get cited by AI answers",
-    level: "Beginner",
-    durationWeeks: 12,
-    modules: 9,
-    lessons: 74,
-    highlights: [
-      "Technical, on-page & off-page SEO",
-      "Answer and generative engine optimisation",
-      "Audit a real client website",
-    ],
-    tools: ["Ahrefs", "Screaming Frog", "Search Console", "Surfer"],
-    fee: 39999,
-    nextBatch: "Next batch starts 15 Sep",
-    isNew: true,
-    cover: "from-[#0f766e] to-[#134e4a]",
-  },
-  {
-    slug: "ai-marketing",
-    title: "AI for Marketers",
-    tagline: "Ship a month of work in a week, without the slop",
-    level: "Intermediate",
-    durationWeeks: 8,
-    modules: 7,
-    lessons: 48,
-    highlights: [
-      "Prompt systems for campaign work",
-      "Automate reporting & briefs",
-      "Build 3 marketing AI agents",
-    ],
-    tools: ["Claude", "n8n", "Zapier", "Midjourney"],
-    fee: 29999,
-    nextBatch: "Next batch starts 1 Sep",
-    cover: "from-[#6d28d9] to-[#4c1d95]",
-  },
-  {
-    slug: "social-media-marketing",
-    title: "Social Media Marketing",
-    tagline: "Build an audience that actually converts",
-    level: "Beginner",
-    durationWeeks: 8,
-    modules: 7,
-    lessons: 55,
-    highlights: [
-      "Content systems for 4 platforms",
-      "Creator & influencer campaigns",
-      "Grow a page from zero as coursework",
-    ],
-    tools: ["Meta Suite", "Canva", "CapCut", "Buffer"],
-    fee: 24999,
-    nextBatch: "Next batch starts 22 Sep",
-    cover: "from-[#be123c] to-[#881337]",
-  },
-];
 
 export const STATS = [
   { value: "40,000+", label: "Learners trained" },
@@ -151,6 +60,34 @@ export const HOW_IT_WORKS = [
     step: "04",
     title: "Get placed",
     body: "Interview prep and introductions to hiring partners, with support until you accept an offer.",
+  },
+];
+
+/**
+ * A newly enrolled student's first day, in the order the app enforces it:
+ * an account made by staff, the forced password change in `requireUser`, the
+ * fee gate on `(paid)`, then the dashboard. Change this if that flow changes.
+ */
+export const FIRST_DAY = [
+  {
+    icon: "mail" as const,
+    title: "Get your login",
+    body: "Once you enrol, your program team creates your account and shares your email and a temporary password.",
+  },
+  {
+    icon: "key-round" as const,
+    title: "Sign in and set your password",
+    body: "On your first sign-in you choose your own password. The temporary one stops working.",
+  },
+  {
+    icon: "wallet" as const,
+    title: "Confirm your fees",
+    body: "Pick how you'll pay and complete it securely online. Your modules unlock as soon as it's done.",
+  },
+  {
+    icon: "monitor-play" as const,
+    title: "Start learning",
+    body: "Your dashboard shows your next live class, where you left off and what's due this week.",
   },
 ];
 

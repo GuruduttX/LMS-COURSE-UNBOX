@@ -54,8 +54,115 @@
  * two seams to swap for database reads; both return null for "no such thing
  * *or* not enrolled", which the pages turn into a 404.
  */
-import { COURSES, type Course as Program } from "./home";
 import { ENROLLMENTS } from "./dashboard";
+
+/* ----------------------- the legacy marketing seed ------------------------ */
+
+/**
+ * The four launch programs as they were written by hand, before `Program` was a
+ * collection.
+ *
+ * This lived in `data/home.ts` and was rendered by the public site. It is not
+ * rendered by anything any more — `data/public-programs.ts` reads the database —
+ * and it survives here, next to the static tree it belongs with, as the input
+ * `scripts/migrate-curriculum.ts` ports. **Do not add a caller, and do not add a
+ * program:** a program created here would be one the LMS does not have.
+ */
+export type LegacyProgram = {
+  slug: string;
+  title: string;
+  tagline: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+  durationWeeks: number;
+  modules: number;
+  lessons: number;
+  highlights: string[];
+  tools: string[];
+  /** Placeholder pricing in ₹ — replace with real fees before launch. */
+  fee: number;
+  nextBatch: string;
+  isNew?: boolean;
+  /** Tailwind classes for the card's cover band. */
+  cover: string;
+};
+
+export const LEGACY_PROGRAMS: LegacyProgram[] = [
+  {
+    slug: "performance-marketing",
+    title: "Performance Marketing",
+    tagline: "Run paid campaigns that pay for themselves",
+    level: "Beginner",
+    durationWeeks: 10,
+    modules: 8,
+    lessons: 62,
+    highlights: [
+      "Google, Meta & LinkedIn Ads",
+      "₹50,000 live ad-spend simulation",
+      "Attribution & ROAS reporting",
+    ],
+    tools: ["Google Ads", "Meta Ads", "GA4", "Looker Studio"],
+    fee: 34999,
+    nextBatch: "Next batch starts 8 Sep",
+    isNew: true,
+    cover: "from-brand-solid to-brand-solid-active",
+  },
+  {
+    slug: "seo-aeo-geo",
+    title: "SEO, AEO & GEO",
+    tagline: "Rank on Google and get cited by AI answers",
+    level: "Beginner",
+    durationWeeks: 12,
+    modules: 9,
+    lessons: 74,
+    highlights: [
+      "Technical, on-page & off-page SEO",
+      "Answer and generative engine optimisation",
+      "Audit a real client website",
+    ],
+    tools: ["Ahrefs", "Screaming Frog", "Search Console", "Surfer"],
+    fee: 39999,
+    nextBatch: "Next batch starts 15 Sep",
+    isNew: true,
+    cover: "from-[#0f766e] to-[#134e4a]",
+  },
+  {
+    slug: "ai-marketing",
+    title: "AI for Marketers",
+    tagline: "Ship a month of work in a week, without the slop",
+    level: "Intermediate",
+    durationWeeks: 8,
+    modules: 7,
+    lessons: 48,
+    highlights: [
+      "Prompt systems for campaign work",
+      "Automate reporting & briefs",
+      "Build 3 marketing AI agents",
+    ],
+    tools: ["Claude", "n8n", "Zapier", "Midjourney"],
+    fee: 29999,
+    nextBatch: "Next batch starts 1 Sep",
+    cover: "from-[#6d28d9] to-[#4c1d95]",
+  },
+  {
+    slug: "social-media-marketing",
+    title: "Social Media Marketing",
+    tagline: "Build an audience that actually converts",
+    level: "Beginner",
+    durationWeeks: 8,
+    modules: 7,
+    lessons: 55,
+    highlights: [
+      "Content systems for 4 platforms",
+      "Creator & influencer campaigns",
+      "Grow a page from zero as coursework",
+    ],
+    tools: ["Meta Suite", "Canva", "CapCut", "Buffer"],
+    fee: 24999,
+    nextBatch: "Next batch starts 22 Sep",
+    cover: "from-[#be123c] to-[#881337]",
+  },
+];
+
 
 export type Status =
   | "completed"
@@ -151,7 +258,7 @@ export type ProgramCourse = {
 };
 
 export type ProgramCurriculum = {
-  program: Program;
+  program: LegacyProgram;
   /** Placement-guarantee deadline for the whole program, ISO. */
   deadline: string;
   courses: ProgramCourse[];
@@ -1217,7 +1324,7 @@ export function courseModules(course: ProgramCourse): CourseModule[] {
 
 /** Returns null when the program doesn't exist or the student isn't enrolled. */
 export function getProgramCurriculum(slug: string): ProgramCurriculum | null {
-  const program = COURSES.find((item) => item.slug === slug);
+  const program = LEGACY_PROGRAMS.find((item) => item.slug === slug);
   const enrollment = ENROLLMENTS.find((item) => item.slug === slug);
   const courses = PROGRAM_COURSES[slug];
 
@@ -1239,7 +1346,7 @@ export function getProgramCurriculum(slug: string): ProgramCurriculum | null {
 }
 
 export type LearnScreen = {
-  program: Program;
+  program: LegacyProgram;
   course: ProgramCourse;
   /** The course's modules, for the sidebar dropdown. */
   modules: CourseModule[];

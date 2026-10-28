@@ -7,7 +7,7 @@ import {
   YoutubeIcon,
 } from "@/components/site/SocialIcons";
 import { Container } from "@/components/ui/Container";
-import { COURSES } from "@/lib/data/home";
+import { listPublicPrograms } from "@/lib/data/public-programs";
 
 const COMPANY = [
   { label: "About us", href: "#advantage" },
@@ -30,7 +30,9 @@ const SOCIALS = [
   { label: "LinkedIn", href: "#", Icon: LinkedinIcon },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const programs = await listPublicPrograms();
+
   return (
     <footer className="bg-night-900 py-12 text-night-300 md:py-16">
       <Container>
@@ -64,13 +66,17 @@ export function SiteFooter() {
             </ul>
           </div>
 
-          <FooterColumn
-            title="Programs"
-            links={COURSES.map((course) => ({
-              label: course.title,
-              href: `/courses/${course.slug}`,
-            }))}
-          />
+          {/* Omitted rather than rendered empty: a "Programs" heading with no
+              links under it reads as a footer that failed to load. */}
+          {programs.length > 0 ? (
+            <FooterColumn
+              title="Programs"
+              links={programs.map((program) => ({
+                label: program.title,
+                href: `/courses/${program.slug}`,
+              }))}
+            />
+          ) : null}
           <FooterColumn title="Company" links={COMPANY} />
           <FooterColumn title="Resources" links={RESOURCES} />
         </div>

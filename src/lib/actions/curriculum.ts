@@ -53,7 +53,14 @@ import type { SubtopicKind } from "@/lib/curriculum/kinds";
 import { toAuthoredQuestion } from "@/lib/curriculum/question-kinds";
 import type { AssessmentScope } from "@/lib/data/staff-work";
 import { isSubmissionFormat } from "@/lib/curriculum/submission-formats";
-import { isNodeStatus, type NodeStatus } from "@/lib/curriculum/rules";
+import {
+  isNodeStatus,
+  MAX_HIGHLIGHTS,
+  MAX_OFFERS,
+  MAX_TOOLS,
+  type NodeStatus,
+  type ProgramLevel,
+} from "@/lib/curriculum/rules";
 import { destroyAsset } from "@/lib/uploads/cloudinary";
 import {
   MATERIAL_KINDS,
@@ -63,8 +70,10 @@ import {
 import { configuredLibraryId as bunnyLibraryId, deleteVideo } from "@/lib/video/bunny";
 import { parseStoredVideo } from "@/lib/video/shared";
 import { adminHrefs, teacherHrefs } from "@/components/staff/curriculum/hrefs";
+import { revalidatePublic } from "@/lib/actions/revalidate";
 import { connectToDatabase } from "@/lib/db";
 import {
+  cleanStringList,
   hasErrors,
   readMinutesFor,
   validateAssessment,
@@ -73,6 +82,7 @@ import {
   validateMaterial,
   validateModule,
   validateProgram,
+  validateProgramDetails,
   validateSubtopic,
   validateTopic,
   type AssessmentInput,
@@ -80,6 +90,7 @@ import {
   type CourseInput,
   type MaterialInput,
   type NodeInput,
+  type ProgramDetailsInput,
   type ProgramInput,
   type QuestionInput,
   type SubtopicInput,
@@ -91,6 +102,7 @@ import type {
   CourseFormState,
   MaterialFormState,
   NodeFormState,
+  ProgramDetailsFormState,
   ProgramFormState,
   SubtopicFormState,
 } from "./curriculum-state";
@@ -197,8 +209,111 @@ export async function saveProgram(
 
   revalidatePath("/admin/programs");
   revalidatePath(`/admin/programs/${slug}`);
+  revalidatePublic(slug);
 
   return { ok: true, errors: {}, values };
+}
+
+/**
+ * Write a program's public pitch — the Details screen.
+ *
+ * Separate from `saveProgram` above, and not only because the fields are
+ * different. `saveProgram` writes an explicit field list, so the two actions can
+ * never overwrite each other: editing a deadline cannot wipe the cover, and
+ * editing the cover cannot touch the slug. That is the whole reason `marketing`
+ * is one nested object rather than nine columns.
+ *
+ * **Admin or program manager.** A manager owns how the programs they run are
+ * presented; what those programs *cost* is still `fee.manage` and still admin
+ * only. `assertScope` is what makes "the programs they run" mean anything — a
+ * manager posting another program's slug gets a 404, not their own program's
+ * copy on somebody else's page.
+ */
+export async function saveProgramDetails(
+  previous: ProgramDetailsFormState,
+  formData: FormData,
+): Promise<ProgramDetailsFormState> {
+  const actor = await requireRole("admin", "program_manager");
+
+  if (!can(actor, "program.market")) {
+    return { ...previous, ok: false, error: DENIED, errors: {} };
+  }
+
+  const slug = text(formData, "programSlug");
+  assertScope(actor, { program: slug });
+
+  const values: ProgramDetailsInput = {
+    tagline: text(formData, "tagline"),
+    description: text(formData, "description"),
+    level: text(formData, "level"),
+    placementGuarantee: text(formData, "placementGuarantee"),
+    nextBatch: text(formData, "nextBatch"),
+    newBadge: text(formData, "newBadge"),
+  };
+
+  // Repeated fields, so `getAll` — one row per bullet. Cleaned before they are
+  // validated so a trailing empty row is dropped rather than counted against
+  // the cap or rejected as a blank bullet.
+  const highlights = cleanStringList(strings(formData, "highlights"), MAX_HIGHLIGHTS);
+  const tools = cleanStringList(strings(formData, "tools"), MAX_TOOLS);
+  const offers = cleanStringList(strings(formData, "offers"), MAX_OFFERS);
+  const lists = { highlights, tools, offers };
+
+  // The browser already refused anything that is not a WebP under 2 MB. This is
+  // the check that counts: a form post is a front door, and `image` is the kind
+  // that carries those rules.
+  const uploaded = parseUploadedFiles(text(formData, "cover"), ["image"]);
+  const cover = uploaded.files[0] ?? null;
+
+  const errors = validateProgramDetails(values, lists);
+  if (uploaded.error) errors.cover = uploaded.error;
+  if (hasErrors(errors)) {
+    return { ok: false, errors, values, cover, ...lists };
+  }
+
+  await connectToDatabase();
+
+  const marketing = {
+    tagline: values.tagline.trim(),
+    description: values.description.trim(),
+    cover,
+    // "" is "not stated", which is a null column rather than an empty string —
+    // the enum has no member for it.
+    level: values.level ? (values.level as ProgramLevel) : null,
+    highlights,
+    tools,
+    placementGuarantee: values.placementGuarantee === "on",
+    offers,
+    newBadge: values.newBadge === "on",
+    nextBatch: values.nextBatch.trim(),
+  };
+
+  // `before`, because the old cover has to be read off the document that is
+  // about to stop pointing at it — afterwards nothing knows which asset to
+  // reclaim.
+  const program = await Program.findOneAndUpdate(
+    { slug },
+    { $set: { marketing } },
+    { returnDocument: "before" },
+  )
+    .select("_id title marketing")
+    .lean();
+  if (!program) notFound();
+
+  await discardReplacedFile(program.marketing?.cover, cover);
+
+  await writeAudit(actor, {
+    action: "program.update",
+    targetType: "Program",
+    targetId: String(program._id),
+    summary: `Updated the public details for ${program.title}`,
+    meta: { slug, cover: cover?.name },
+  });
+
+  revalidatePath("/admin/programs");
+  revalidateProgram(slug);
+
+  return { ok: true, errors: {}, values, cover, ...lists };
 }
 
 /* --------------------------------- course -------------------------------- */
@@ -216,6 +331,8 @@ export async function saveCourse(
     title: text(formData, "title"),
     summary: text(formData, "summary"),
     completeBy: text(formData, "completeBy"),
+    startMonth: text(formData, "startMonth"),
+    endMonth: text(formData, "endMonth"),
     status: text(formData, "status") || "draft",
   };
 
@@ -228,6 +345,9 @@ export async function saveCourse(
     // Blank is a standalone checkpoint, which prints no "Course N".
     number: values.number.trim() ? Number(values.number) : null,
     completeBy: toDate(values.completeBy),
+    // Blank stays null: no month is printed rather than a guessed one.
+    startMonth: values.startMonth.trim() ? Number(values.startMonth) : null,
+    endMonth: values.endMonth.trim() ? Number(values.endMonth) : null,
     status: values.status as NodeStatus,
   };
 
@@ -1597,6 +1717,19 @@ function text(formData: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
+/**
+ * Every value posted under one name — a repeated field, such as a bullet list.
+ *
+ * `getAll` rather than `get`, and filtered to strings: a `File` posted under a
+ * text field's name is not a bullet, and `String(file)` would store
+ * "[object File]" as one.
+ */
+function strings(formData: FormData, name: string): string[] {
+  return formData
+    .getAll(name)
+    .filter((value): value is string => typeof value === "string");
+}
+
 function readMode(formData: FormData): "create" | "edit" {
   return text(formData, "mode") === "edit" ? "edit" : "create";
 }
@@ -1702,10 +1835,21 @@ function hrefsFor(formData: FormData, programSlug: string) {
 }
 
 /** Both areas render the same tree, so both are stale after any write. */
+/**
+ * Every screen a curriculum write can change — **including the public ones**.
+ *
+ * The site is refreshed from here rather than from each caller because every
+ * write that reaches this function is visible to a visitor: `/courses/[slug]`
+ * prints course titles, module titles and a lesson count, so renaming a topic
+ * or publishing a subtopic changes it. Twenty callers each remembering to add a
+ * second line is twenty chances to leave the public page stale, and the one
+ * that forgets is not the one anybody tests.
+ */
 function revalidateProgram(programSlug: string): void {
   revalidatePath(`/admin/programs/${programSlug}`, "layout");
   revalidatePath(`/teacher/programs/${programSlug}`, "layout");
   revalidatePath(`/manager/programs/${programSlug}`, "layout");
+  revalidatePublic(programSlug);
 }
 
 function capitalise(type: NodeType): string {

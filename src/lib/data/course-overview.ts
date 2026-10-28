@@ -15,8 +15,8 @@ import { getCourseSessions } from "./sessions";
 /**
  * Per-course overview data for /dashboard/[course]/overview.
  *
- * This was a static placeholder keyed off `COURSES` in `data/home.ts` with two
- * hand-written seeds. That meant the student's main screen only resolved for
+ * This was a static placeholder keyed off a hand-written `COURSES` array with
+ * two seeds in it. That meant the student's main screen only resolved for
  * the two demo slugs and 404'd for every program anyone actually created —
  * while their dashboard, curriculum, marksheet, tasks and lessons all worked,
  * because those had already moved to the database.
@@ -74,9 +74,10 @@ export type PlacementSummary = {
 
 export type CourseOverview = {
   /**
-   * Only what the screen prints. The marketing record in `data/home.ts` carries
-   * a tagline, a cover and a fee; the overview never read any of them, and
-   * depending on it is what made this page unreachable for a real program.
+   * Only what the screen prints. A program's tagline, cover and fee live on
+   * `Program.marketing` and are read by `data/public-programs.ts`; this screen
+   * never needed any of them, and depending on the old array that carried them
+   * is what made this page unreachable for a real program.
    */
   course: { slug: string; title: string };
   isComplete: boolean;
@@ -126,7 +127,7 @@ function positionIn(curriculum: ProgramCurriculum): CurrentPosition | null {
         moduleNumber: view.number ?? 1,
         moduleTitle: view.title,
         lessonTitle: next.title,
-        modulePercent: modulePercent(view.topics),
+        modulePercent: modulePercent(view),
       };
     }
   }

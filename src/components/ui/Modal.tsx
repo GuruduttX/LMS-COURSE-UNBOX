@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/cn";
 import { fade, modalPanel, sheet } from "@/lib/motion";
@@ -9,6 +10,24 @@ import { useMediaQuery } from "@/lib/useMediaQuery";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Dialogs opened from inside a dialog — a "are you sure?" over a form.
+ *
+ * Two things break when one Modal renders inside another, and both are fixed
+ * here rather than at the call site:
+ *
+ * - **Position.** The outer panel is animated, and a `fixed` element inside a
+ *   transformed ancestor is positioned against that ancestor, not the screen.
+ *   So a nested Modal portals to `<body>`. A top-level one does not: several
+ *   are rendered inside the `<form>` they belong to, and moving them out of it
+ *   would detach their fields.
+ * - **Keys.** Every open panel listens on `document`, so Escape would close the
+ *   whole stack and two focus traps would fight over Tab. `openPanels` is the
+ *   stack; only its top answers the keyboard.
+ */
+const InsideModal = createContext(false);
+const openPanels: object[] = [];
 
 /**
  * design.md §5 — Modal: centred panel at `md+`, bottom sheet below, max 480px,
@@ -37,8 +56,9 @@ export function Modal({
 }) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const reduced = useReducedMotion();
+  const nested = useContext(InsideModal);
 
-  return (
+  const dialog = (
     <AnimatePresence>
       {isOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
@@ -63,13 +83,19 @@ export function Modal({
             )}
           >
             <Panel onClose={onClose} labelledBy={labelledBy}>
-              {children}
+              <InsideModal.Provider value={true}>{children}</InsideModal.Provider>
             </Panel>
           </motion.div>
         </div>
       ) : null}
     </AnimatePresence>
   );
+
+  // A nested dialog only ever opens from a click inside an open one, so there
+  // is always a document by the time this renders.
+  return nested && typeof document !== "undefined"
+    ? createPortal(dialog, document.body)
+    : dialog;
 }
 
 /**
@@ -86,6 +112,17 @@ function Panel({
   children: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const token = useRef({});
+
+  // Join the stack on open, leave it on close — see `openPanels`.
+  useEffect(() => {
+    const self = token.current;
+    openPanels.push(self);
+    return () => {
+      const index = openPanels.lastIndexOf(self);
+      if (index !== -1) openPanels.splice(index, 1);
+    };
+  }, []);
 
   // Lock the page, move focus in, and hand it back to the trigger on close.
   useEffect(() => {
@@ -108,6 +145,9 @@ function Panel({
   // Escape closes; Tab cycles inside the panel.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // A dialog with another open on top of it leaves the keyboard to that one.
+      if (openPanels[openPanels.length - 1] !== token.current) return;
+
       if (event.key === "Escape") {
         event.stopPropagation();
         onClose();

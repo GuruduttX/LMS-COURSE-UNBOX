@@ -20,19 +20,56 @@
  * boundary. The mark lands on the marksheet whenever it arrives. See
  * `ASSIGNMENT_GATE_REQUIRES_MARK`.
  *
- * ## Resubmitting clears the mark
+ * ## Handing in is final, unless a teacher asks for it again
  *
- * One row per student per assignment (the unique index), updated in place. A
- * resubmission drops `status` back to `submitted` and nulls the score — keeping
- * an old mark against new work would be worse than having no mark at all — and
- * the file it replaces is deleted from Cloudinary by the action that wrote it.
+ * One row per student per assignment (the unique index). Once a hand-in exists
+ * the student cannot replace it: `submitAssignment` only writes over a row whose
+ * status is `resubmission_requested`, and only a teacher's action sets that.
+ * See `lib/curriculum/submission-status.ts` for the whole cycle.
+ *
+ * ## The top level is the current version; `history` is every earlier one
+ *
+ * Every screen that reads a hand-in reads the top-level fields, exactly as it
+ * did before versions existed — so a row written before this change is simply
+ * version 1 with no history (`version` and `history` are read with `?? 1` and
+ * `?? []`, because `lean()` does not apply defaults to old documents).
+ *
+ * When a teacher requests a resubmission the current version — file, note, and
+ * any mark it was given — is copied into `history` along with the request, and
+ * the top-level mark is cleared: an old mark against work being redone is worse
+ * than no mark. When the student hands in again the top level is overwritten
+ * and `version` goes up. Superseded files are **kept**, because history points
+ * at them.
  */
 import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
 
 import { ASSIGNMENT_MAX } from "@/lib/curriculum/rules";
 import { SUBMISSION_FORMATS } from "@/lib/curriculum/submission-formats";
+import { SUBMISSION_STATUSES } from "@/lib/curriculum/submission-status";
 
 import { uploadedFileSchema } from "./uploaded-file-schema";
+
+/** One superseded version, frozen when a teacher sent it back. */
+const submissionVersionSchema = new Schema(
+  {
+    version: { type: Number, required: true },
+    fileUrl: { type: String, required: true, trim: true, maxlength: 500 },
+    file: { type: uploadedFileSchema, default: null },
+    format: { type: String, enum: SUBMISSION_FORMATS, required: true },
+    note: { type: String, default: "", trim: true, maxlength: 600 },
+    submittedAt: { type: Date, required: true },
+    /** The mark this version had when it was sent back, if it had been marked. */
+    scored: { type: Number, default: null },
+    maxMarks: { type: Number, default: ASSIGNMENT_MAX },
+    feedback: { type: String, default: "", trim: true, maxlength: 2000 },
+    evaluatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    evaluatedAt: { type: Date, default: null },
+    resubmissionReason: { type: String, default: "", trim: true, maxlength: 1000 },
+    resubmissionRequestedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    resubmissionRequestedAt: { type: Date, required: true },
+  },
+  { _id: false },
+);
 
 const submissionSchema = new Schema(
   {
@@ -60,9 +97,28 @@ const submissionSchema = new Schema(
 
     status: {
       type: String,
-      enum: ["submitted", "evaluated"],
+      enum: SUBMISSION_STATUSES,
       default: "submitted",
     },
+    /** 1 for the first hand-in, +1 for each resubmission. */
+    version: { type: Number, default: 1 },
+    /**
+     * The open request, while `status` is `resubmission_requested`; null
+     * otherwise. A copy also lands on the history entry, so it outlives the
+     * resubmission that answers it.
+     */
+    resubmission: {
+      type: new Schema(
+        {
+          reason: { type: String, default: "", trim: true, maxlength: 1000 },
+          requestedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+          requestedAt: { type: Date, required: true },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    history: { type: [submissionVersionSchema], default: [] },
     /** Null until marked. Renders as an em dash, never a zero. */
     scored: { type: Number, default: null },
     /** Copied from the assignment at submission, so a later change to the
@@ -75,7 +131,8 @@ const submissionSchema = new Schema(
   { timestamps: true },
 );
 
-// One hand-in per student per assignment; a resubmission upserts against this.
+// One hand-in per student per assignment. This is also what makes the first
+// hand-in race-safe: two concurrent inserts cannot both land.
 submissionSchema.index({ studentId: 1, assignmentId: 1 }, { unique: true });
 // The teacher's grading queue: "unmarked work on my courses".
 submissionSchema.index({ courseId: 1, status: 1, submittedAt: 1 });

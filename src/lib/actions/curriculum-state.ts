@@ -15,6 +15,8 @@ import {
   EMPTY_MATERIAL,
   EMPTY_NODE,
   EMPTY_PROGRAM,
+  EMPTY_PROGRAM_DETAILS,
+  EMPTY_PROGRAM_DETAILS_LISTS,
   EMPTY_SUBTOPIC,
   type AssessmentErrors,
   type AssessmentInput,
@@ -22,13 +24,22 @@ import {
   type AssignmentInput,
   type CourseErrors,
   type CourseInput,
+  type GradeErrors,
+  type GradeInput,
+  EMPTY_GRADE,
   type MaterialErrors,
   type MaterialInput,
   type NodeErrors,
   type NodeInput,
+  type ProgramDetailsErrors,
+  type ProgramDetailsInput,
+  type ProgramDetailsLists,
   type ProgramErrors,
   type ProgramInput,
   type QuestionInput,
+  type ResubmissionErrors,
+  type ResubmissionInput,
+  EMPTY_RESUBMISSION,
   type SubmissionErrors,
   type SubmissionInput,
   type SubtopicErrors,
@@ -45,6 +56,22 @@ export type FormState<Values, Errors> = {
 };
 
 export type ProgramFormState = FormState<ProgramInput, ProgramErrors>;
+
+/**
+ * The public pitch, edited on its own screen rather than in the program form.
+ *
+ * The cover and the three bullet lists ride beside the values for the reason an
+ * assignment's brief and its accepted formats do: they are not string fields,
+ * and a rejected save must hand the form back the picture somebody just waited
+ * on an upload for rather than lose it.
+ */
+export type ProgramDetailsFormState = FormState<
+  ProgramDetailsInput,
+  ProgramDetailsErrors
+> &
+  ProgramDetailsLists & {
+    cover: UploadedFile | null;
+  };
 export type CourseFormState = FormState<CourseInput, CourseErrors>;
 /** Modules and topics share this state; their forms carry the same fields. */
 export type NodeFormState = FormState<NodeInput, NodeErrors>;
@@ -100,6 +127,29 @@ export const EMPTY_SUBMISSION_STATE: SubmissionFormState = {
   file: null,
 };
 
+/**
+ * A mark. The teacher's half of the loop the hand-in above starts.
+ *
+ * No extras beside the values: a mark is two plain fields, which is why this is
+ * the one form state in here that is `FormState` and nothing more.
+ */
+export type GradeFormState = FormState<GradeInput, GradeErrors>;
+
+export const EMPTY_GRADE_STATE: GradeFormState = {
+  ok: false,
+  errors: {},
+  values: EMPTY_GRADE,
+};
+
+/** Sending a hand-in back for another go — the teacher's other answer to it. */
+export type ResubmissionFormState = FormState<ResubmissionInput, ResubmissionErrors>;
+
+export const EMPTY_RESUBMISSION_STATE: ResubmissionFormState = {
+  ok: false,
+  errors: {},
+  values: EMPTY_RESUBMISSION,
+};
+
 /** Delete, publish and reorder need no field errors — they have no fields. */
 export type ActionState = { ok: boolean; error?: string };
 
@@ -109,6 +159,14 @@ export const EMPTY_PROGRAM_STATE: ProgramFormState = {
   ok: false,
   errors: {},
   values: EMPTY_PROGRAM,
+};
+
+export const EMPTY_PROGRAM_DETAILS_STATE: ProgramDetailsFormState = {
+  ok: false,
+  errors: {},
+  values: EMPTY_PROGRAM_DETAILS,
+  cover: null,
+  ...EMPTY_PROGRAM_DETAILS_LISTS,
 };
 
 export const EMPTY_COURSE_STATE: CourseFormState = {

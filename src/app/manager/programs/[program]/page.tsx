@@ -1,11 +1,13 @@
-import { Library } from "lucide-react";
+import { Library, Megaphone } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PageHeading } from "@/components/staff/StatTile";
 import { Breadcrumb } from "@/components/staff/curriculum/Breadcrumb";
 import { ProgramTeachers } from "@/components/staff/curriculum/ProgramTeachers";
 import { TreeList, TreeRow } from "@/components/staff/curriculum/TreeRow";
+import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { assertScope, requireRole } from "@/lib/auth/guards";
 import { formatDate } from "@/lib/curriculum/format";
@@ -60,7 +62,36 @@ export default async function ManagerProgramPage({
             ? `Programme deadline ${formatDate(curriculum.deadline)}`
             : curriculum.program.summary || undefined
         }
+        action={
+          <ButtonLink
+            href={`/manager/programs/${slug}/details`}
+            variant="secondary"
+          >
+            <Megaphone size={16} aria-hidden />
+            Public details
+          </ButtonLink>
+        }
       />
+
+      {curriculum.program.hasDetails ? null : (
+        <p className="flex items-start gap-2 rounded-lg border border-warning-500/30 bg-warning-50 p-3 text-sm text-warning-800">
+          <Megaphone size={16} aria-hidden className="mt-0.5 shrink-0" />
+          <span>
+            <span className="font-semibold">
+              This program is live on the site with no public details.
+            </span>{" "}
+            Visitors see its title, its summary and the curriculum — no pitch, no
+            cover and nothing about what it offers.{" "}
+            <Link
+              href={`/manager/programs/${slug}/details`}
+              className="font-semibold underline"
+            >
+              Write them
+            </Link>
+            .
+          </span>
+        </p>
+      )}
 
       <ProgramTeachers programSlug={slug} teachers={teachers} />
 

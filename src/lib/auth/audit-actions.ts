@@ -88,6 +88,12 @@ export const ACTIONS = {
   "enrollment.reactivate": { label: "Re-enrolled student", category: "students" },
   "enrollment.withdraw": { label: "Withdrew student", category: "students" },
   "submission.create": { label: "Submitted assignment", category: "students" },
+  "submission.grade": { label: "Marked assignment", category: "students" },
+  "submission.resubmit": { label: "Resubmitted assignment", category: "students" },
+  "submission.requestResubmission": {
+    label: "Requested resubmission",
+    category: "students",
+  },
   "attempt.start": { label: "Started test", category: "students" },
   "attempt.submit": { label: "Submitted test", category: "students" },
   "attempt.violation": { label: "Proctoring flag", category: "students" },

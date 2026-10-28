@@ -7,18 +7,17 @@ import { Program } from "@/models/Program";
  * Program identity — slug and title — read from the collection that owns it.
  *
  * This exists because several screens used to answer "what is this program
- * called?" out of `COURSES` in `data/home.ts`. That array is **marketing copy
- * for the logged-out home page** (see models/Program.ts), not a register of
- * programs, and it only ever held the four launch programs. Every program
- * created since through the admin UI is absent from it, so a lookup against it
- * answered "no such program" for real rows — which, where the answer gated a
- * query rather than merely labelling it, turned into a 404 on a page whose data
- * was sitting in the database the whole time.
+ * called?" out of a hand-written `COURSES` array in `data/home.ts`. That array
+ * only ever held the four launch programs, so a lookup against it answered "no
+ * such program" for real rows — which, where the answer gated a query rather
+ * than merely labelling it, turned into a 404 on a page whose data was sitting
+ * in the database the whole time.
  *
- * The two are still joined on `slug` and they are still not duplicates of each
- * other: the home page must render without a database read of content only
- * signed-in students are entitled to. So `data/home.ts` keeps the tagline, the
- * cover and the fee, and this module answers who exists.
+ * That array is gone; the public pages read `data/public-programs.ts`, which
+ * also comes from this collection. **This module is the cheap answer to "who
+ * exists"** — slug and title, nothing else — for the staff screens that only
+ * need to label a row. Anything that needs the pitch, the cover or the counts
+ * wants `public-programs.ts` instead.
  */
 
 export type ProgramIdentity = { slug: string; title: string };

@@ -123,6 +123,9 @@ export async function CourseEditor({
                 title: course.title,
                 summary: course.summary,
                 completeBy: dateInput(course.completeBy),
+                startMonth:
+                  course.startMonth === null ? "" : String(course.startMonth),
+                endMonth: course.endMonth === null ? "" : String(course.endMonth),
                 status: course.nodeStatus,
               }
             : undefined

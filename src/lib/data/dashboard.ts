@@ -1,12 +1,18 @@
 /**
- * Pure helpers for the dashboard, plus the marketing catalogue join.
+ * Pure helpers for the dashboard.
  *
  * The enrolments that used to live here are real rows now, read in
- * `data/enrolled.ts`. What stays is everything that must remain importable from
- * a client component: `data/sessions.ts` reaches this module, and one
- * `server-only` import anywhere in that chain breaks the browser bundle.
+ * `data/enrolled.ts`, and the catalogue join has moved to
+ * `data/public-programs.ts` where a database read belongs. What stays is
+ * everything that must remain importable from a client component:
+ * `components/dashboard/EnrolledCourseCard.tsx` and `data/sessions.ts` both
+ * reach this module, and one `server-only` import anywhere in that chain breaks
+ * the browser bundle.
+ *
+ * **This module has no imports, and that is the point.** Its purity used to be a
+ * comment; now it is structural, and adding one is the thing to think twice
+ * about rather than the thing to do quickly.
  */
-import { COURSES, type Course } from "./home";
 
 /**
  * The old static enrolments. **The dashboard no longer reads these.**
@@ -48,18 +54,6 @@ export const ENROLLMENTS: Enrollment[] = [
     batch: "May 2026 · Weekend batch",
   },
 ];
-
-/**
- * Everything the student is not enrolled in yet.
- *
- * Takes the enrolled slugs rather than reading them, so this module stays pure
- * — it is reachable from a client component and cannot import `server-only`.
- * The real enrolments live in `data/enrolled.ts`.
- */
-export function getAvailableCourses(enrolledSlugs: string[]): Course[] {
-  const enrolled = new Set(enrolledSlugs);
-  return COURSES.filter((course) => !enrolled.has(course.slug));
-}
 
 export function progressPercent(lessonsDone: number, total: number): number {
   if (total <= 0) return 0;

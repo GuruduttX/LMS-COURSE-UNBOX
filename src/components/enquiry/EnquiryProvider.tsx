@@ -28,7 +28,23 @@ export function useEnquiry(): EnquiryContextValue {
   return context;
 }
 
-export function EnquiryProvider({ children }: { children: ReactNode }) {
+/**
+ * `programs` comes down from a server component — the dialog is a client
+ * component and cannot read the database, and the dropdown must offer what is
+ * actually published rather than a list written by hand.
+ *
+ * `defaultProgram` pre-selects one, so a visitor who clicks "Apply now" on the
+ * SEO page does not have to pick SEO again.
+ */
+export function EnquiryProvider({
+  children,
+  programs,
+  defaultProgram,
+}: {
+  children: ReactNode;
+  programs: string[];
+  defaultProgram?: string;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [source, setSource] = useState("unknown");
 
@@ -47,7 +63,13 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
   return (
     <EnquiryContext.Provider value={value}>
       {children}
-      <EnquiryDialog isOpen={isOpen} onClose={close} source={source} />
+      <EnquiryDialog
+        isOpen={isOpen}
+        onClose={close}
+        source={source}
+        programs={programs}
+        defaultProgram={defaultProgram}
+      />
     </EnquiryContext.Provider>
   );
 }

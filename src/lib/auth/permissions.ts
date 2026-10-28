@@ -27,6 +27,11 @@ export const CAPABILITIES = [
   "program.publish",
   "program.archive",
   "program.assignTeacher",
+  // How the program is presented to someone who has not enrolled — the tagline,
+  // the cover, the offers. Split from `fee.manage` the same way `fee.view` is:
+  // describing a program and pricing it are different jobs, and the manager who
+  // owns the cohort's story is not the person who sets what it costs.
+  "program.market",
   "curriculum.author",
   "curriculum.reorder",
   "curriculum.delete",
@@ -71,6 +76,9 @@ const SCOPED_CAPABILITIES: Record<Exclude<Role, "admin">, Capability[]> = {
   /** Owns the cohort and the timetable — schedules sessions, assigns teachers. */
   program_manager: [
     "program.view",
+    // Writes the public pitch for the programs they run. **Not** `fee.manage`:
+    // see the note beside `fee.view` below.
+    "program.market",
     // Staffing their own programs. Deliberately NOT `user.assign`, which is the
     // admin's power to set anyone's role and assignments anywhere; this grants
     // only "put a teacher on / take a teacher off a program I manage", and the

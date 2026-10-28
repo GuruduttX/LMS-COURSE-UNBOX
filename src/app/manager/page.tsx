@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { PageHeading, StatTile } from "@/components/staff/StatTile";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { requireRole } from "@/lib/auth/guards";
-import { COURSES } from "@/lib/data/home";
+import { programsFor } from "@/lib/data/programs";
 
 /**
  * The program manager's landing screen: the programs they run.
@@ -22,13 +22,11 @@ export const metadata: Metadata = { title: "Program manager" };
 export default async function ManagerOverviewPage() {
   const user = await requireRole("program_manager");
 
-  // An admin is not assigned to anything — they run every program.
-  const programs =
-    user.role === "admin"
-      ? COURSES
-      : COURSES.filter((course) =>
-          user.assignments.some((item) => item.programSlug === course.slug),
-        );
+  // `programsFor` already answers "admin runs everything, everyone else runs
+  // what they are assigned to", filtered against what actually exists. This used
+  // to filter the static home-page array, which held only the four launch
+  // programs — so a manager assigned to anything created since saw nothing.
+  const programs = await programsFor(user);
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -76,10 +74,6 @@ export default async function ManagerOverviewPage() {
                 <h3 className="text-sm font-bold text-ink-900">
                   {program.title}
                 </h3>
-                <p className="mt-1 text-xs text-ink-500">
-                  {program.durationWeeks} weeks · {program.modules} courses ·{" "}
-                  {program.lessons} lessons
-                </p>
                 <p className="mt-3 text-sm text-ink-600">
                   Scheduling, attendance and enrolments for this program appear
                   here as they are built.

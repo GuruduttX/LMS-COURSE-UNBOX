@@ -20,6 +20,7 @@ import type {
 } from "./question-kinds";
 import type { NodeStatus } from "./rules";
 import type { SubmissionFormat } from "./submission-formats";
+import type { SubmissionStatus } from "./submission-status";
 import type { UploadedFile } from "@/lib/uploads/kinds";
 import type { StoredVideo } from "@/lib/video/shared";
 
@@ -29,7 +30,8 @@ export type Status =
   | "not-started"
   | "locked"
   | "submitted"
-  | "evaluated";
+  | "evaluated"
+  | "resubmission-requested";
 
 /* -------------------------------- questions ------------------------------- */
 
@@ -157,6 +159,23 @@ export type ModuleView = {
   materialTitle: string;
 };
 
+/** One earlier version of a hand-in, as it stood when a teacher sent it back. */
+export type SubmissionVersionView = {
+  version: number;
+  fileUrl: string;
+  file: UploadedFile | null;
+  format: SubmissionFormat;
+  note: string;
+  submittedAt: string;
+  /** Null when it was sent back without being marked. */
+  scored: number | null;
+  maxMarks: number;
+  feedback: string;
+  evaluatedAt: string | null;
+  resubmissionReason: string;
+  resubmissionRequestedAt: string;
+};
+
 export type SubmissionView = {
   id: string;
   fileUrl: string;
@@ -165,10 +184,17 @@ export type SubmissionView = {
   format: SubmissionFormat;
   note: string;
   submittedAt: string;
-  status: "submitted" | "evaluated";
+  status: SubmissionStatus;
+  /** 1 for the first hand-in; each resubmission adds one. */
+  version: number;
   scored: number | null;
   maxMarks: number;
   feedback: string;
+  evaluatedAt: string | null;
+  /** The open request while `status` is `resubmission_requested`. */
+  resubmission: { reason: string; requestedAt: string } | null;
+  /** Earlier versions, oldest first. Empty for a first hand-in. */
+  history: SubmissionVersionView[];
 };
 
 export type AssignmentView = {
@@ -208,6 +234,12 @@ export type CourseView = {
   title: string;
   summary: string;
   completeBy: string | null;
+  /**
+   * Which month of the programme this course runs in — see `models/Course.ts`.
+   * Both null means the timeline is not set, and nothing prints a month.
+   */
+  startMonth: number | null;
+  endMonth: number | null;
   items: CourseItem[];
   modules: ModuleView[];
   assignments: AssignmentView[];
@@ -234,6 +266,15 @@ export type ProgramView = {
   summary: string;
   /** The program's own publish state, so the authoring screens can change it. */
   nodeStatus: NodeStatus;
+  /**
+   * Whether anybody has written the public pitch — `Program.marketing`.
+   *
+   * A boolean rather than the copy itself: the staff screens only ever ask
+   * "is there any?", to nudge somebody who published a program the site can say
+   * nothing about. The copy proper is read by `data/public-programs.ts`, which
+   * is the only module that needs it.
+   */
+  hasDetails: boolean;
 };
 
 export type ProgramCurriculum = {
@@ -256,10 +297,27 @@ export type LearnScreen = {
   next: LearnStep | null;
 };
 
+/**
+ * One end of the footer bar's walk-through: where Prev or Next goes.
+ *
+ * It carries a **finished href** rather than the coordinates of a subtopic,
+ * because at the end of a course the next thing is not a subtopic at all — it
+ * is an assignment to hand in, a paper to sit, or the first lesson of the
+ * course after this one. See `nextAfterLessons`.
+ */
 export type LearnStep = {
-  moduleId: string;
-  subtopicId: string;
+  /** Where it goes; null when the step is real but closed — `note` says why. */
+  href: string | null;
+  /** What the control reads. An ordinary lesson keeps the bare "Prev"/"Next". */
+  label: string;
+  /** The destination's own name — the tooltip. */
   title: string;
+  /**
+   * The line printed beside the control: what is coming, or why it will not
+   * open. Null for an ordinary lesson, where the label and tooltip are enough
+   * and a sentence under every video would be noise.
+   */
+  note: string | null;
 };
 
 /**

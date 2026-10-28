@@ -92,12 +92,11 @@ export async function getCourseSessions(
 ): Promise<CourseSessions | null> {
   await connectToDatabase();
 
-  // The `Program` collection, not `COURSES` from data/home.ts. That array is
-  // marketing copy for the logged-out home page and only ever held the four
-  // launch programs, so looking a slug up in it answered "no such program" for
-  // every program created since — and this returns null, which the page turns
-  // into a 404. The rows below were always real; only the guard in front of
-  // them was still pointing at the old source.
+  // The `Program` collection — which is now the only place programs live. This
+  // used to look the slug up in a hand-written array holding the four launch
+  // programs, so it answered "no such program" for every program created since,
+  // and this returns null, which the page turns into a 404. The rows below were
+  // always real; only the guard in front of them pointed at the old source.
   const program = await Program.findOne({ slug }).select("slug title").lean();
   if (!program) return null;
 

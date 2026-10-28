@@ -29,10 +29,18 @@ import type {
   TopicView,
 } from "./types";
 
+/**
+ * `resubmission-requested` counts as done **for progress and gates**. The work
+ * was handed in, and handing in is what opens the next course (see
+ * `assignmentSatisfied`). A teacher asking for a revision should not re-lock a
+ * course, or a term paper, that the student has already moved into. The row's
+ * badge and icon still say plainly that there is work to redo.
+ */
 const DONE: ReadonlySet<Status> = new Set<Status>([
   "completed",
   "evaluated",
   "submitted",
+  "resubmission-requested",
 ]);
 
 export function isDone(status: Status): boolean {
@@ -52,26 +60,53 @@ export function moduleSeconds(topics: TopicView[]): number {
   );
 }
 
-export function modulePercent(topics: TopicView[]): number {
-  const all = moduleSubtopics(topics);
+/**
+ * Everything in a module a student has to get through: its lessons, **and its
+ * test if it has one**.
+ *
+ * The test used to be left out, so a module whose lessons were watched read
+ * 100% and "completed" while its paper had never been opened — and then the
+ * final test refused to unlock, because `finalTestLockReason` was counting the
+ * paper the percentage had quietly dropped. A number that says finished and a
+ * gate that says not finished cannot both be right; the gate is the one that
+ * decides whether the student can move on, so the number follows it.
+ *
+ * Sat, not passed — the same bar `finalTestLockReason` uses. A module test is
+ * practice with a mark attached and has unlimited attempts (`maxAttemptsFor`);
+ * requiring a score here would invent a gate that exists nowhere else.
+ */
+function moduleUnits(view: ModuleView): Status[] {
+  const lessons = moduleSubtopics(view.topics).map((item) => item.status);
+  return view.test ? [...lessons, testStatus(view.test)] : lessons;
+}
+
+/** A paper counts as one piece of work: done once it has been sat. */
+function testStatus(test: AssessmentView): Status {
+  return test.best ? "completed" : "not-started";
+}
+
+export function modulePercent(view: ModuleView): number {
+  const all = moduleUnits(view);
   if (all.length === 0) return 0;
-  return Math.round(
-    (all.filter((item) => isDone(item.status)).length / all.length) * 100,
-  );
+  return Math.round((all.filter(isDone).length / all.length) * 100);
 }
 
-/** A module has no stored status — it is whatever its subtopics say it is. */
-export function moduleStatus(topics: TopicView[]): Status {
-  const all = moduleSubtopics(topics);
-  if (all.length === 0) return "not-started";
-  if (all.every((item) => item.status === "completed")) return "completed";
-  if (all.every((item) => item.status === "locked")) return "locked";
-  if (all.some((item) => item.status !== "not-started")) return "in-progress";
-  return "not-started";
+/** A module has no stored status — it is whatever is inside it says it is. */
+export function moduleStatus(view: ModuleView): Status {
+  return rollUp(moduleUnits(view));
 }
 
+/** A topic holds lessons and nothing else, so it never counts a paper. */
 export function topicStatus(topic: TopicView): Status {
-  return moduleStatus([topic]);
+  return rollUp(topic.subtopics.map((item) => item.status));
+}
+
+function rollUp(statuses: Status[]): Status {
+  if (statuses.length === 0) return "not-started";
+  if (statuses.every(isDone)) return "completed";
+  if (statuses.every((status) => status === "locked")) return "locked";
+  if (statuses.some((status) => status !== "not-started")) return "in-progress";
+  return "not-started";
 }
 
 /* ---------------------------------- courses ------------------------------- */
@@ -116,6 +151,9 @@ export function assignmentSatisfied(assignment: AssignmentView): boolean {
 export function assignmentStatus(assignment: AssignmentView): Status {
   const submission = assignment.submission;
   if (!submission) return "not-started";
+  if (submission.status === "resubmission_requested") {
+    return "resubmission-requested";
+  }
   return submission.status === "evaluated" ? "evaluated" : "submitted";
 }
 
@@ -247,7 +285,7 @@ function listOf(names: string[]): string {
 
 /** The status of one row of a course, whatever kind of row it is. */
 export function itemStatus(item: CourseItem): Status {
-  if (item.module) return moduleStatus(item.module.topics);
+  if (item.module) return moduleStatus(item.module);
   if (item.assignment) return assignmentStatus(item.assignment);
   return item.status;
 }

@@ -31,9 +31,13 @@
  */
 import mongoose, { Types } from "mongoose";
 
-import { PROGRAM_COURSES, type CourseModule, type ProgramCourse } from "../src/lib/data/curriculum";
+import {
+  LEGACY_PROGRAMS,
+  PROGRAM_COURSES,
+  type CourseModule,
+  type ProgramCourse,
+} from "../src/lib/data/curriculum";
 import { MODULE_TESTS } from "../src/lib/data/marksheet";
-import { COURSES } from "../src/lib/data/home";
 import { ENROLLMENTS } from "../src/lib/data/dashboard";
 import { ASSIGNMENT_MAX, TEST_MARK_PER_QUESTION } from "../src/lib/curriculum/rules";
 
@@ -116,11 +120,11 @@ async function main() {
   const counts = { courses: 0, modules: 0, topics: 0, subtopics: 0, tests: 0, assignments: 0 };
 
   for (const [slug, programCourses] of Object.entries(PROGRAM_COURSES)) {
-    const marketing = COURSES.find((course) => course.slug === slug);
+    const marketing = LEGACY_PROGRAMS.find((program) => program.slug === slug);
     const enrolment = ENROLLMENTS.find((row) => row.slug === slug);
 
     if (!marketing) {
-      console.warn(`  ! ${slug} — no entry in data/home.ts, skipped`);
+      console.warn(`  ! ${slug} — no entry in LEGACY_PROGRAMS, skipped`);
       continue;
     }
 
@@ -132,7 +136,7 @@ async function main() {
         title: marketing.title,
         summary: marketing.tagline,
         deadline: enrolment ? new Date(enrolment.deadline) : null,
-        order: COURSES.indexOf(marketing),
+        order: LEGACY_PROGRAMS.indexOf(marketing),
       },
       options,
     );

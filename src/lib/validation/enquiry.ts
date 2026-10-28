@@ -4,12 +4,19 @@
  * The client uses it for instant inline errors; the server runs the exact same
  * rules because client-side validation is a convenience, never a guarantee.
  */
-import { COURSES } from "@/lib/data/home";
+/**
+ * Always offered, whatever programs exist.
+ *
+ * A visitor who does not yet know which program they want is the *typical*
+ * enquiry, not an edge case, and a dropdown that forces them to name one
+ * produces a lead that says something they did not mean.
+ */
+export const NOT_SURE = "Not sure yet";
 
-export const PROGRAM_OPTIONS = [
-  ...COURSES.map((course) => course.title),
-  "Not sure yet",
-] as const;
+/** What the dropdown offers: the published programs, plus the escape hatch. */
+export function programOptions(programs: readonly string[]): string[] {
+  return [...programs, NOT_SURE];
+}
 
 export type EnquiryInput = {
   fullName: string;
@@ -32,7 +39,24 @@ export function normalisePhone(raw: string): string {
   return raw.replace(/[\s()-]/g, "").replace(/^(\+?91)/, "");
 }
 
-export function validateEnquiry(input: EnquiryInput): EnquiryErrors {
+/**
+ * The same rules on both sides, with one deliberate asymmetry in the last field.
+ *
+ * Given `programs` — the client, which has the published titles as a prop — the
+ * program must be one of them or `NOT_SURE`, so a typo in a `<select>` is caught
+ * inline. Without them, the rule is only that something plausible was said.
+ *
+ * **The server calls it without the list, on purpose.** An enquiry is a lead. A
+ * visitor whose page loaded ninety seconds before an admin renamed a program
+ * would otherwise get a validation error on a field they filled in correctly,
+ * and the cost of that is a lost sale against a benefit of tidier text in a
+ * column that is already free-form (`models/Enquiry.ts`). Pass `programs` on the
+ * server only if you would rather lose the lead than the tidiness.
+ */
+export function validateEnquiry(
+  input: EnquiryInput,
+  options: { programs?: readonly string[] } = {},
+): EnquiryErrors {
   const errors: EnquiryErrors = {};
 
   const name = input.fullName.trim();
@@ -58,9 +82,14 @@ export function validateEnquiry(input: EnquiryInput): EnquiryErrors {
     errors.email = "That email address doesn't look right.";
   }
 
-  if (!input.program) {
-    errors.program = "Pick a program, or choose “Not sure yet”.";
-  } else if (!PROGRAM_OPTIONS.includes(input.program as never)) {
+  const program = input.program.trim();
+  if (!program) {
+    errors.program = `Pick a program, or choose “${NOT_SURE}”.`;
+  } else if (options.programs) {
+    if (!programOptions(options.programs).includes(program)) {
+      errors.program = "Pick a program from the list.";
+    }
+  } else if (program.length > 140) {
     errors.program = "Pick a program from the list.";
   }
 

@@ -18,8 +18,8 @@ import { useMediaQuery } from "@/lib/useMediaQuery";
 import { modalPanel, sheet, fade } from "@/lib/motion";
 import {
   EMPTY_ENQUIRY,
-  PROGRAM_OPTIONS,
   hasErrors,
+  programOptions,
   validateEnquiry,
   type EnquiryErrors,
   type EnquiryInput,
@@ -34,10 +34,16 @@ export function EnquiryDialog({
   isOpen,
   onClose,
   source,
+  programs,
+  defaultProgram = "",
 }: {
   isOpen: boolean;
   onClose: () => void;
   source: string;
+  /** Published program titles, loaded on the server — see EnquiryProvider. */
+  programs: string[];
+  /** Pre-selected when the dialog opens from a program's own page. */
+  defaultProgram?: string;
 }) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const reduced = useReducedMotion();
@@ -63,7 +69,12 @@ export function EnquiryDialog({
             exit="exit"
             className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface shadow-lg md:max-w-lg md:rounded-2xl"
           >
-            <EnquiryDialogContent onClose={onClose} source={source} />
+            <EnquiryDialogContent
+              onClose={onClose}
+              source={source}
+              programs={programs}
+              defaultProgram={defaultProgram}
+            />
           </motion.div>
         </div>
       ) : null}
@@ -74,15 +85,24 @@ export function EnquiryDialog({
 function EnquiryDialogContent({
   onClose,
   source,
+  programs,
+  defaultProgram,
 }: {
   onClose: () => void;
   source: string;
+  programs: string[];
+  defaultProgram: string;
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
-  const [values, setValues] = useState<EnquiryInput>(EMPTY_ENQUIRY);
+  // Pre-selected only when the program is one actually on offer: a stale link
+  // must not put a program nobody publishes into the dropdown.
+  const [values, setValues] = useState<EnquiryInput>(() => ({
+    ...EMPTY_ENQUIRY,
+    program: programs.includes(defaultProgram) ? defaultProgram : "",
+  }));
   const [errors, setErrors] = useState<EnquiryErrors>({});
   const [status, setStatus] = useState<Status>("editing");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -141,17 +161,17 @@ function EnquiryDialogContent({
     (key: keyof EnquiryInput, value: string) => {
       setValues((current) => {
         const next = { ...current, [key]: value };
-        if (validateLive) setErrors(validateEnquiry(next));
+        if (validateLive) setErrors(validateEnquiry(next, { programs }));
         return next;
       });
     },
-    [validateLive],
+    [validateLive, programs],
   );
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
-    const nextErrors = validateEnquiry(values);
+    const nextErrors = validateEnquiry(values, { programs });
     setErrors(nextErrors);
     setValidateLive(true);
     setSubmitError(null);
@@ -342,7 +362,7 @@ function EnquiryDialogContent({
               onChange={(event) => setField("program", event.target.value)}
             >
               <option value="">Select a program</option>
-              {PROGRAM_OPTIONS.map((option) => (
+              {programOptions(programs).map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>

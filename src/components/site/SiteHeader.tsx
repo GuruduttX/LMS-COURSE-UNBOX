@@ -9,7 +9,7 @@ import { useEnquiry } from "@/components/enquiry/EnquiryProvider";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { COURSES } from "@/lib/data/home";
+import type { ProgramNavItem } from "@/components/site/SiteChrome";
 import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
@@ -20,8 +20,19 @@ const NAV = [
   { label: "Contact", href: "#contact" },
 ];
 
-/** `theme` is read on the server by the page and passed down — see app/page.tsx. */
-export function SiteHeader({ theme }: { theme: Theme }) {
+/**
+ * `theme` and `programs` are both read on the server and passed down — this is a
+ * client component and cannot reach the database. `PublicHeader` in
+ * `SiteChrome.tsx` is what loads them, and every public page renders that
+ * rather than this.
+ */
+export function SiteHeader({
+  theme,
+  programs,
+}: {
+  theme: Theme;
+  programs: ProgramNavItem[];
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [programsOpen, setProgramsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -78,7 +89,13 @@ export function SiteHeader({ theme }: { theme: Theme }) {
           <Logo />
 
           <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
-            <div ref={programsRef} className="relative">
+            {/* No trigger at all when nothing is published: a dropdown that
+                opens onto an empty panel reads as a broken menu, where an
+                absent one simply reads as a site with no programs yet. */}
+            <div
+              ref={programsRef}
+              className={cn("relative", programs.length === 0 && "hidden")}
+            >
               <button
                 type="button"
                 aria-expanded={programsOpen}
@@ -105,19 +122,21 @@ export function SiteHeader({ theme }: { theme: Theme }) {
                     transition={{ duration: 0.15 }}
                     className="absolute left-0 top-full mt-2 w-80 rounded-2xl border border-border bg-surface p-2 shadow-lg"
                   >
-                    {COURSES.map((course) => (
+                    {programs.map((program) => (
                       <Link
-                        key={course.slug}
-                        href={`/courses/${course.slug}`}
+                        key={program.slug}
+                        href={`/courses/${program.slug}`}
                         onClick={() => setProgramsOpen(false)}
                         className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-brand-50"
                       >
                         <span className="block text-sm font-semibold text-ink-900">
-                          {course.title}
+                          {program.title}
                         </span>
-                        <span className="mt-0.5 block text-xs text-ink-500">
-                          {course.durationWeeks} weeks · {course.modules} modules
-                        </span>
+                        {program.meta ? (
+                          <span className="mt-0.5 block text-xs text-ink-500">
+                            {program.meta}
+                          </span>
+                        ) : null}
                       </Link>
                     ))}
                   </motion.div>
@@ -178,6 +197,7 @@ export function SiteHeader({ theme }: { theme: Theme }) {
             }}
             reduced={!!reduced}
             theme={theme}
+            programs={programs}
           />
         ) : null}
       </AnimatePresence>
@@ -215,11 +235,13 @@ function MobileMenu({
   onApply,
   reduced,
   theme,
+  programs,
 }: {
   onClose: () => void;
   onApply: () => void;
   reduced: boolean;
   theme: Theme;
+  programs: ProgramNavItem[];
 }) {
   return (
     <motion.div
@@ -256,21 +278,25 @@ function MobileMenu({
         aria-label="Mobile"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4"
       >
-        <p className="px-3 pb-2 pt-1 text-2xs font-semibold uppercase tracking-[0.12em] text-ink-500">
-          Programs
-        </p>
-        {COURSES.map((course) => (
-          <Link
-            key={course.slug}
-            href={`/courses/${course.slug}`}
-            onClick={onClose}
-            className="rounded-lg px-3 py-3 text-base font-semibold text-ink-900 hover:bg-brand-50"
-          >
-            {course.title}
-          </Link>
-        ))}
+        {programs.length > 0 ? (
+          <>
+            <p className="px-3 pb-2 pt-1 text-2xs font-semibold uppercase tracking-[0.12em] text-ink-500">
+              Programs
+            </p>
+            {programs.map((program) => (
+              <Link
+                key={program.slug}
+                href={`/courses/${program.slug}`}
+                onClick={onClose}
+                className="rounded-lg px-3 py-3 text-base font-semibold text-ink-900 hover:bg-brand-50"
+              >
+                {program.title}
+              </Link>
+            ))}
 
-        <div className="my-3 h-px bg-border" />
+            <div className="my-3 h-px bg-border" />
+          </>
+        ) : null}
 
         {NAV.map((item) => (
           <Link

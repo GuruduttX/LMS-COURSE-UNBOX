@@ -2,16 +2,19 @@ import { ArrowRight, CalendarClock, Clock, Layers } from "lucide-react";
 
 import { EnquiryButton } from "@/components/enquiry/EnquiryButton";
 import { ButtonLink } from "@/components/ui/Button";
-import type { Course } from "@/lib/data/home";
+import type { PublicProgramCard } from "@/lib/data/public-programs";
+import { formatPaise } from "@/lib/payments/money";
 
-const INR = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
-
-/** A course the student has not enrolled in — shown under "All courses". */
-export function CatalogCourseCard({ course }: { course: Course }) {
+/**
+ * A program the student has not enrolled in — shown under "All programs".
+ *
+ * **The fee is paise here**, not rupees. The static array this replaced held
+ * `fee: 34999` and formatted it directly; `Program.feeAmount` holds 3499900 and
+ * goes through `formatPaise`. Both print "₹34,999", which is exactly why the
+ * swap has to be deliberate rather than eyeballed — the wrong one is off by a
+ * factor of a hundred and still looks like a price.
+ */
+export function CatalogCourseCard({ course }: { course: PublicProgramCard }) {
   return (
     <article className="flex flex-col rounded-xl border border-border bg-surface p-5 shadow-sm transition-shadow duration-200 hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
@@ -19,7 +22,9 @@ export function CatalogCourseCard({ course }: { course: Course }) {
           <h3 className="text-lg font-bold leading-snug text-ink-900">
             {course.title}
           </h3>
-          <p className="mt-1 text-sm text-ink-600">{course.tagline}</p>
+          {course.tagline ? (
+            <p className="mt-1 text-sm text-ink-600">{course.tagline}</p>
+          ) : null}
         </div>
         {course.isNew ? (
           <span className="shrink-0 rounded-full bg-gold-100 px-2.5 py-1 text-2xs font-bold uppercase tracking-wide text-gold-600">
@@ -28,25 +33,41 @@ export function CatalogCourseCard({ course }: { course: Course }) {
         ) : null}
       </div>
 
+      {/* Each row hides on its own: a program whose timeline or batch nobody
+          has set should show one fewer fact, not an empty value. */}
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-        <Meta icon={<Clock size={14} />} label="Duration">
-          {course.durationWeeks} weeks
-        </Meta>
-        <Meta icon={<Layers size={14} />} label="Structure">
-          {course.modules} modules
-        </Meta>
-        <Meta icon={<CalendarClock size={14} />} label="Starts" wide>
-          {course.nextBatch.replace("Next batch starts ", "")}
-        </Meta>
+        {course.durationMonths !== null ? (
+          <Meta icon={<Clock size={14} />} label="Duration">
+            {course.durationMonths}{" "}
+            {course.durationMonths === 1 ? "month" : "months"}
+          </Meta>
+        ) : null}
+        {course.moduleCount > 0 ? (
+          <Meta icon={<Layers size={14} />} label="Structure">
+            {course.moduleCount}{" "}
+            {course.moduleCount === 1 ? "module" : "modules"}
+          </Meta>
+        ) : null}
+        {course.nextBatch ? (
+          <Meta icon={<CalendarClock size={14} />} label="Starts" wide>
+            {course.nextBatch.replace("Next batch starts ", "")}
+          </Meta>
+        ) : null}
       </dl>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <p>
-          <span className="text-lg font-extrabold tabular-nums text-ink-900">
-            {INR.format(course.fee)}
-          </span>
-          <span className="ml-1.5 text-xs text-ink-500">incl. taxes</span>
-        </p>
+        {course.feeAmount !== null ? (
+          <p>
+            <span className="text-lg font-extrabold tabular-nums text-ink-900">
+              {formatPaise(course.feeAmount)}
+            </span>
+            <span className="ml-1.5 text-xs text-ink-500">incl. taxes</span>
+          </p>
+        ) : (
+          // No price published. Deliberately not "Free" — a program with no fee
+          // set is one nobody has priced yet, which is a different thing.
+          <span />
+        )}
 
         <div className="flex items-center gap-2">
           <ButtonLink href={`/courses/${course.slug}`} variant="secondary">

@@ -45,8 +45,8 @@ export type ManagedSession = {
 /**
  * The programs this user may schedule into. Admins get all of them.
  *
- * Async since it reads the `Program` collection: it used to filter `COURSES`
- * from data/home.ts, which meant the composer offered the four launch programs
+ * Async since it reads the `Program` collection: it used to filter a
+ * hand-written array, which meant the composer offered the four launch programs
  * — none of which is a row — and offered no way to pick a program anyone had
  * actually created. See lib/data/programs.ts.
  */

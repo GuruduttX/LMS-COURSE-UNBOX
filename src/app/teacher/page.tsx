@@ -6,6 +6,7 @@ import { PageHeading, StatTile } from "@/components/staff/StatTile";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { requireRole } from "@/lib/auth/guards";
 import { programsForTeacher } from "@/lib/data/curriculum-staff";
+import { pendingGradingCount } from "@/lib/data/grading";
 
 /**
  * The teacher's landing screen: the programs they author, and how much of each
@@ -16,10 +17,12 @@ import { programsForTeacher } from "@/lib/data/curriculum-staff";
  * card is a way into the authoring screens — the previous version listed
  * courses that were not links, which is a list you can only look at.
  *
- * **Drafts is the number a teacher opens this page for.** It is what is left to
- * finish, and it is the one thing they can act on from here. The number they
- * are ultimately judged on, submissions awaiting grading, still needs the
- * grading screens and is therefore absent rather than invented.
+ * **Drafts is what is left to finish; Awaiting grading is somebody waiting.**
+ * The second used to read an em dash with the hint "Grading lands with
+ * submissions" — honest at the time, because a tile here is a real query or it
+ * is nothing. It is a real query now (`pendingGradingCount`, scoped to this
+ * teacher's cohorts like everything else) and it links to the queue, because a
+ * count with no way to act on it is a nag rather than a tool.
  */
 export const dynamic = "force-dynamic";
 
@@ -27,7 +30,10 @@ export const metadata: Metadata = { title: "Teacher" };
 
 export default async function TeacherOverviewPage() {
   const user = await requireRole("teacher");
-  const programs = await programsForTeacher(user);
+  const [programs, pendingCount] = await Promise.all([
+    programsForTeacher(user),
+    pendingGradingCount(user),
+  ]);
 
   const courseCount = programs.reduce((sum, entry) => sum + entry.courses, 0);
   const draftCount = programs.reduce((sum, entry) => sum + entry.drafts, 0);
@@ -54,11 +60,20 @@ export default async function TeacherOverviewPage() {
           icon={PencilLine}
           href="/teacher/programs"
         />
+        {/* The number a teacher is judged on, and the one thing on this page
+            that is somebody else waiting. It is a link because it is always
+            actionable — the queue is one click, and a count with no way to it
+            is a nag rather than a tool. */}
         <StatTile
           label="Awaiting grading"
-          value="—"
-          hint="Grading lands with submissions"
+          value={pendingCount}
+          hint={
+            pendingCount === 0
+              ? "Nothing waiting"
+              : `${pendingCount === 1 ? "Hand-in" : "Hand-ins"} to mark`
+          }
           icon={ClipboardCheck}
+          href="/teacher/grading"
         />
       </div>
 

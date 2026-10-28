@@ -6,6 +6,7 @@ import {
   CircleDot,
   FileText,
   Lock,
+  PencilLine,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -17,10 +18,16 @@ import {
   learnHref,
   materialHref,
   moduleEntryHref,
+  moduleTestHref,
 } from "@/lib/curriculum/links";
-import { modulePercent, topicStatus } from "@/lib/curriculum/status";
+import {
+  modulePercent,
+  moduleTestLockReason,
+  topicStatus,
+} from "@/lib/curriculum/status";
 import type {
   LearnScreen,
+  ModuleView,
   Status,
   SubtopicView,
   TopicView,
@@ -93,7 +100,7 @@ export function LearnSidebar({
                     {item.number}. {item.title}
                   </span>
                   <span className="shrink-0 text-2xs font-bold tabular-nums text-ink-500">
-                    {modulePercent(item.topics)}%
+                    {modulePercent(item)}%
                   </span>
                 </Link>
               </li>
@@ -157,7 +164,109 @@ export function LearnSidebar({
           ))}
         </ol>
       </section>
+
+      {/* The module's test — the last thing in the module, and until now the
+          only thing in it the outline never mentioned. A student could finish
+          every lesson, watch the column go green, and have no idea a paper was
+          waiting; the only route to it was the course details screen, which is
+          two taps away and not where you are when you finish a lesson. */}
+      {module.test ? (
+        <section>
+          <h2 className="text-2xs font-semibold uppercase tracking-[0.12em] text-ink-500">
+            Module test
+          </h2>
+          <div className="mt-2">
+            <ModuleTestCard
+              programSlug={program.slug}
+              courseId={course.id}
+              module={module}
+            />
+          </div>
+        </section>
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * The way into the module's test, or the reason it will not open yet.
+ *
+ * Never a link that fails — the same rule the locked subtopic rows and the
+ * course cards follow. Once it has been sat this offers a **retake** rather
+ * than going quiet: module tests have unlimited attempts, the best score is
+ * what the marksheet reads, and the final's gate only asks that it has been
+ * sat at all.
+ */
+function ModuleTestCard({
+  programSlug,
+  courseId,
+  module: view,
+}: {
+  programSlug: string;
+  courseId: string;
+  module: ModuleView;
+}) {
+  const test = view.test;
+  if (!test) return null;
+
+  const reason = moduleTestLockReason(view);
+  const best = test.best;
+
+  const body = (
+    <>
+      <span className="w-4 shrink-0">
+        {best ? (
+          <CheckCircle2 size={15} aria-hidden className="text-success-500" />
+        ) : reason ? (
+          <Lock size={14} aria-hidden className="text-ink-400" />
+        ) : (
+          <CircleDashed size={15} aria-hidden className="text-ink-400" />
+        )}
+      </span>
+
+      <PencilLine
+        size={15}
+        aria-hidden
+        className={cn("shrink-0", reason ? "text-ink-400" : "text-brand-600")}
+      />
+
+      <span className="min-w-0 flex-1">
+        <span
+          className={cn(
+            "block text-sm font-semibold",
+            reason ? "text-ink-500" : "text-ink-900",
+          )}
+        >
+          {test.title}
+        </span>
+        <span className="mt-0.5 block text-2xs font-medium text-ink-500">
+          {reason ??
+            (best
+              ? `Scored ${best.scored}/${best.maxScore} · retake to improve it`
+              : `${test.questionCount} ${test.questionCount === 1 ? "question" : "questions"} · ${test.durationMinutes} min`)}
+        </span>
+      </span>
+    </>
+  );
+
+  const className =
+    "flex min-h-14 w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-left";
+
+  if (reason) {
+    return (
+      <div className={cn(className, "cursor-not-allowed")} aria-disabled="true">
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={moduleTestHref(programSlug, courseId, view.id)}
+      className={cn(className, "transition-colors hover:bg-ink-50")}
+    >
+      {body}
+    </Link>
   );
 }
 

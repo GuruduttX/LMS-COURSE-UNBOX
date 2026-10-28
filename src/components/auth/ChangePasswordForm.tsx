@@ -8,7 +8,8 @@ import {
   type PasswordState,
 } from "@/app/account/password/state";
 import { Button } from "@/components/ui/Button";
-import { Field, TextInput } from "@/components/ui/Field";
+import { Field } from "@/components/ui/Field";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { MIN_PASSWORD_LENGTH } from "@/lib/validation/auth";
 
 export function ChangePasswordForm({ canCancel }: { canCancel: boolean }) {
@@ -25,10 +26,9 @@ export function ChangePasswordForm({ canCancel }: { canCancel: boolean }) {
         error={state.errors.currentPassword}
         required
       >
-        <TextInput
+        <PasswordInput
           id="currentPassword"
           name="currentPassword"
-          type="password"
           autoComplete="current-password"
           hasError={Boolean(state.errors.currentPassword)}
         />
@@ -41,10 +41,9 @@ export function ChangePasswordForm({ canCancel }: { canCancel: boolean }) {
         hint={`At least ${MIN_PASSWORD_LENGTH} characters, with a letter and a number.`}
         required
       >
-        <TextInput
+        <PasswordInput
           id="newPassword"
           name="newPassword"
-          type="password"
           autoComplete="new-password"
           hasError={Boolean(state.errors.newPassword)}
         />
@@ -56,10 +55,9 @@ export function ChangePasswordForm({ canCancel }: { canCancel: boolean }) {
         error={state.errors.confirmPassword}
         required
       >
-        <TextInput
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           hasError={Boolean(state.errors.confirmPassword)}
         />

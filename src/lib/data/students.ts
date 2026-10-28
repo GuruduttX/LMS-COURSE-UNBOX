@@ -9,6 +9,7 @@ import {
   requireRole,
   type CurrentUser,
 } from "@/lib/auth/guards";
+import type { SubmissionStatus } from "@/lib/curriculum/submission-status";
 import { connectToDatabase } from "@/lib/db";
 import { Attendance } from "@/models/Attendance";
 import { Attempt } from "@/models/Attempt";
@@ -391,7 +392,8 @@ export type StudentDetail = {
       format: string;
       note: string;
       submittedAt: string;
-      status: "submitted" | "evaluated";
+      status: SubmissionStatus;
+      version: number;
       scored: number | null;
       feedback: string;
     } | null;
@@ -476,6 +478,7 @@ export async function studentDetail(
             note: assignment.submission.note,
             submittedAt: assignment.submission.submittedAt,
             status: assignment.submission.status,
+            version: assignment.submission.version,
             scored: assignment.submission.scored,
             feedback: assignment.submission.feedback,
           }
